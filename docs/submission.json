@@ -1,0 +1,53 @@
+{
+  "prepared_on": "2026-10-03",
+  "status": "Submission and planning documents only; no working prototype or live integrations",
+  "form": {
+    "applicant_name": "Bhavya Dhoot",
+    "track": "Diabetes",
+    "primary_user": "Doctor / Care Team",
+    "use_case": "Patient Follow-up & Continuity of Care",
+    "solution_name": "Vishwas Care Continuity",
+    "problem": "Diabetes care often involves repeat OPD visits over months or years. Before reaching the hospital, patients may struggle to locate records, find the department named in a referral, or arrange transport and caregiver support. Between visits, language, cost and scheduling barriers can prevent follow-up. Care teams may see a missed appointment without knowing why the patient could not return or whether another visit was booked. Scattered registers, calls and messages make coordination harder. Patients carry the burden of navigating the system, while staff repeatedly chase updates. The gap is operational: helping patients complete follow-up already planned by their clinician, and giving care teams visibility into practical barriers and confirmed attendance.",
+    "solution": "Vishwas Care Continuity will help diabetes care teams coordinate patients before and between visits. Staff confirm the referral department and follow-up date. Before arrival, patients gather records and find the booked or referred OPD through a hospital directory; unclear requests go to staff. Afterwards, Vishwas tracks overdue appointments and supports consented multilingual WhatsApp text and voice outreach. AI transcribes logistical replies, categorises practical barriers and drafts administrative responses for staff review, without receiving medical records. Caregivers participate only with permission. Staff help resolve booking or travel issues, and a follow-up is marked completed only after attendance is verified. Optional ABHA-linked record sharing is a future consent-based integration; the demo uses synthetic records and simulated ABHA screens. Vishwas supports navigation and follow-through without diagnosis, medical interpretation, clinical risk scoring, or test and treatment recommendations.",
+    "technology": "Next.js/React, TypeScript, Node.js route handlers and PostgreSQL. Scheduled queries flag overdue appointments. WhatsApp Cloud API supports outreach, with a mock channel for demos. OpenAI speech-to-text and Responses APIs provide transcription, structured logistical-barrier categories and staff-reviewed reply drafts; medical records stay outside these AI calls. ABHA and hospital attendance integrations are simulated initially. Deploy the web prototype on Vercel.",
+    "existing_work": "No - we are building a new solution",
+    "existing_work_detail": "We are building a new solution. Before this submission, we had developed the concept and a pitch deck, but no product or prototype code. This repository contains submission and planning documents; implementation is planned.",
+    "scope_confirmation": "I confirm our solution stays outside the out-of-scope list above - it does not diagnose, recommend treatment, provide clinical decision support, or give autonomous clinical advice.",
+    "supporting_links": [
+      "https://github.com/Bhavya-Dhoot/Vishwas"
+    ],
+    "pitch_deck_status": "Existing deck reported by applicant; not provided for review or modified in this work. Upload a 6-8 slide PDF or PowerPoint, maximum 25 MB.",
+    "prototype_url": null,
+    "video_url": null,
+    "linkedin_url": null
+  },
+  "validation": {
+    "problem": {
+      "words": 110,
+      "characters": 763,
+      "word_limit": 150,
+      "character_limit": 1200
+    },
+    "solution": {
+      "words": 133,
+      "characters": 1015,
+      "word_limit": 150,
+      "character_limit": 1200
+    },
+    "technology": {
+      "words": 58,
+      "characters": 465,
+      "word_limit": 80,
+      "character_limit": 600
+    }
+  },
+  "disclosure": {
+    "prior_work_confirmed_by_applicant": true,
+    "prior_work": "Concept and pitch deck only; no prior product or prototype code",
+    "clinical_scope": "Administrative coordination only",
+    "abha_demo": "Simulated; future integration subject to consent and ABDM onboarding",
+    "measurements": "Proposed metrics; no measured patient outcomes",
+    "deck_reviewed": false,
+    "form_submitted": false
+  }
+}
