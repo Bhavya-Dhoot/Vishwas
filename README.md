@@ -80,6 +80,7 @@ Run `node scripts/benchmark-edge.mjs` for a synthetic local scheduling benchmark
 
 ## Submission materials
 
+- [Creative video brief and ready-to-paste Brag prompts](context.md)
 - [Updated 60-second demo video](brag-output/brag.mp4) · [poster](brag-output/brag.jpg) · [share copy](brag-output/share-copy.txt)
 - [All form answers and core idea](docs/submission.md)
 - [Form values and length checks](docs/submission.json)
