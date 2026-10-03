@@ -1,81 +1,65 @@
-# Vishwas — focused build plan
+# Vishwas — implementation and next steps
 
-**Status:** Proposed work. No feature below is implemented by this submission pack.
+**Core idea:** Begin routing before the patient travels to hospital. A request from home is reviewed remotely, and the specialist, slot, location and checklist reach the patient's view before check-in. The same journey then tracks the follow-up until the patient returns.
 
-**Pilot focus:** One diabetes OPD, an existing referral or booking, English and Hindi communication, and a single follow-up episode. The care team is the primary user. Expand to other conditions only after the workflow is demonstrated.
+**Current stage:** Working local prototype for the Diabetes track. All patients, clinicians, slots and messages are fictional. It runs on one computer and stores its state in SQLite. This is not a deployed hospital system.
 
-## Product boundary
+## What works
 
-| Initial ambition | Submission-safe implementation |
+| Step | Implemented behaviour |
 | --- | --- |
-| Choose the best specialist from medical history | Navigate from the referral or booking department confirmed by staff |
-| Route someone with no referral | Offer a staff assistance request and the hospital directory; no inferred specialty |
-| Rank doctors | Filter within the confirmed department by availability, location, language and patient preference; no claim of clinical superiority |
-| Suggest tests before arrival | Display a staff-provided document checklist; no generated investigations |
-| Prioritise high-risk patients | Sort follow-up tasks by due date, overdue days and unresolved administrative status; no clinical score |
-| Interpret the patient record | Store/display documents for authorised human review; no AI clinical extraction or summary |
-| Ensure every patient returns | Track barriers and verify attendance; completion is a measured outcome, never a guarantee |
+| Pre-arrival intake | The patient page accepts a fictional request from home with referral department, language and outreach permission. It creates a staff review task and a patient-specific demo journey link. |
+| Route | Staff confirm the department from an existing referral. Without confirmation, booking is blocked. A missing referral requires staff handling. |
+| Match and book | Show specialists in the confirmed department with the chosen language and available slots. Reject another department, past slots and over-capacity bookings. |
+| Prepare | Show clinic location, appointment details and a document-presence checklist. No document content is uploaded or interpreted. |
+| Arrive | Record check-in, then require staff confirmation and attendance evidence to complete the visit. |
+| Plan the return | A clinician-set date opens a separate follow-up. Previous attendance never completes the new visit. |
+| Remind | Check due dates every minute while the server runs. Add consented reminders to the simulated inbox, with no duplicate for the same episode, recipient and demo day. |
+| Handle barriers | A simulated patient selects a logistical barrier. A template becomes a staff draft. Medical questions receive no automatic draft. Approval and barrier resolution are separate actions. |
+| Verify return | Rebooking preserves the original due date. The episode stays open until check-in and staff-attested attendance. |
+| Persist | SQLite retains patients, bookings, messages, consent and audit events across restarts. |
 
-A nurse reviewing an AI test recommendation would still leave a test recommendation in the product. Keep excluded clinical functions out of this build.
+The seed contains a patient awaiting routing, a patient booked today and an overdue follow-up. The demonstration clock starts at 3 October 2026; seeded slots cover 3–20 October. Advance the demo clock to exercise due dates without waiting real days.
 
-## Implement first
+The patient entry is /?view=patient. Keep the resulting link after submitting. In a separate staff tab, confirm the route and book; **Refresh journey** shows the plan to the patient before arrival. After staff create a follow-up, refresh selects that new open episode. Unknown patient links show a new-request screen, not another patient's record. These are local demo views, not a public portal with identity verification.
 
-1. **Staff entry and confirmation.** Create a synthetic patient, language preference, outreach permission, optional caregiver permission, department, appointment and clinician-set follow-up date. Staff enter or confirm the administrative fields; a model does not infer them from records.
-2. **Before-visit checklist.** Show the confirmed OPD location, appointment details and staff-provided document list. Patients can mark documents available. Missing records do not trigger new tests or clinical conclusions.
-3. **Follow-up queue.** Compare the current date with the recorded due date and attendance status. Show due, overdue, waiting for reply, needs staff action, rescheduled and completed. Keep the original due date when rescheduling.
-4. **Two-way logistical support.** Use English/Hindi administrative templates and a simulated WhatsApp conversation. Let patients indicate travel, cost, work/scheduling, language or caregiver support needs. Staff resolve a task, offer confirmed slots or provide a verified help-desk contact.
-5. **Small, useful AI step.** Transcribe a synthetic logistical voice reply, categorise its practical barrier and draft an administrative response using approved clinic information. Staff review before sending. Make the AI call live only when credentials are available; label canned output as simulated.
-6. **Verified return.** Staff record attendance evidence and time. Message delivery, a reply, a rescheduling request and a booked slot must never mark the follow-up completed.
-7. **Audit and consent.** Record who confirmed routing, edited a due date, approved a message or verified attendance. Honour outreach opt-out and separate caregiver permission.
+## AI connection
 
-Free-text and voice can contain health information even when the prompt asks about logistics. In the first demo, use synthetic logistical messages only. For a real pilot, staff screen such messages and approve only administrative excerpts/audio segments for AI processing; clinical or mixed-content questions go directly to the care team without an AI answer. Records, lab values, diagnoses and clinical notes are not model inputs. This is a design requirement, not a claim that a filter can reliably remove every clinical detail.
+The optional OpenAI Responses API adapter is implemented. Set OPENAI_API_KEY and OPENAI_MODEL on the server to enable **Improve draft**. It receives only the chosen logistical-barrier category, language and an approved template. Names, records and patient free text are not sent.
 
-## Simulate in the hackathon
+Without credentials or during a provider error, clinic templates keep the workflow usable. Messages record the actual source. AI output stays a staff draft; it never sends, routes, books or marks attendance. The adapter is tested with a mocked provider, not a live model call. Speech transcription and voice delivery are not implemented.
 
-| Dependency | Honest demo treatment |
-| --- | --- |
-| ABHA identity and consent | Screens labelled “Simulated ABHA flow — synthetic data”; no real number, OTP or record access |
-| Hospital attendance/EMR | Staff attendance confirmation with synthetic evidence; no claim of a live hospital connection |
-| WhatsApp delivery | In-app conversation or authorised test setup if available; show simulated/live status |
-| Appointment inventory | Small staff-maintained slot list; only confirmed staff actions update a booking |
-| Transport/financial support | Care-team task or verified contact; no promise that a ride, funding or eligibility has been secured |
+This uses [OpenAI structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs). Staff still review the content; a schema does not establish accuracy.
 
-A declined visit, withdrawal or confirmed transfer can have its own outcome; none counts as completed attendance. New follow-ups receive separate episode identifiers so a previous visit cannot complete a later task.
+## External services
 
-## Minimal architecture
+| Connection | Current status | Work required for real use |
+| --- | --- | --- |
+| WhatsApp | In-app simulation; no phone numbers or real sending | Provider setup, approved messaging flows, delivery callbacks and opt-out handling |
+| ABHA / ABDM | Optional simulated consent; no ABHA number or record access | Applicable onboarding, identity/linking flows, patient consent, scoped exchange and revocation |
+| Hospital system | Staff input and fictional directory/slots | Approved connections to real appointments, roster and attendance |
+| OpenAI | Adapter implemented; unconfigured by default | Server credentials and a supported model; evaluate administrative drafts before a pilot |
 
-Use one Next.js application for both patient and staff views, with TypeScript and [Node.js route handlers](https://nextjs.org/docs/app/getting-started/route-handlers). PostgreSQL stores consent flags, confirmed department, scheduled dates, tasks, message state and audit events. A scheduled database query is sufficient to detect overdue dates; no predictive model is needed.
+No clinical triage, specialty inference from records, test suggestions, clinical risk scores or treatment advice are included. Human approval would not bring those functions into this hackathon's permitted scope.
 
-Use the WhatsApp Cloud API only after account access and applicable messaging permissions are established. Initially, use the simulated inbox and clinic-recorded English/Hindi audio templates.
+## Technical choices
 
-Use the [OpenAI file-transcription API](https://developers.openai.com/api/docs/guides/speech-to-text) for approved logistical audio and the Responses API with [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs) for a small barrier category plus a reply draft. Validate the allowed category and require staff approval; schema compliance does not prove a reply is correct. No fine-tuning, vector database, clinical model or autonomous agent is needed for this demonstration. Keep service keys on the server.
+Node.js 22.13 or newer serves the browser files and JSON endpoints. Built-in HTTP, filesystem, crypto, fetch and SQLite APIs support plain JavaScript and CSS in the browser. No runtime package dependencies or build step are needed. Run npm start and npm test.
 
-Vercel is the proposed web deployment target with a managed PostgreSQL instance. Real patient use requires an appropriate hosting/data arrangement, access controls, retention settings and consent handling to be implemented and reviewed first. Do not claim certification or legal compliance from this plan.
+For this small demo, one SQLite row holds a state snapshot. Actions validate and save a cloned state before publishing it. AI drafting rechecks the draft and recipient consent after its asynchronous request. Each draft retains its originating barrier; stale enhancements cannot overwrite a newer version.
 
-## ABHA: what it contributes
+The server binds to localhost, accepts validated JSON actions, limits request sizes and rejects cross-origin writes. Role switching is a demo view, not authentication. A real pilot needs staff authentication/authorisation, patient access separation, retention controls and approved hosting/data arrangements. Use only fictional information in this prototype.
 
-ABHA stands for **Ayushman Bharat Health Account**, part of ABDM. Its number is a 14-digit health identifier. Sharing linked records is consent-based; the identifier alone is not a password or blanket access to records. ABHA does not establish PM-JAY eligibility. These distinctions are explained by the [NHA overview](https://abdm.gov.in/strapicms/uploads/ABDM_STANDEE_24aabea939.pdf) and [Ministry of Health explainer](https://www.pib.gov.in/Pressreleaseshare.aspx?PRID=2017129&lang=2&reg=48).
+## ABHA context
 
-The planned demo offers “Continue without ABHA” and a separate simulated consent flow. It uses no actual health-account number or identity verification. Medical-record sharing permission and permission to message a caregiver are separate.
+ABHA means **Ayushman Bharat Health Account**, under ABDM. It is a voluntary 14-digit identifier, not an insurance entitlement. Linked-record access requires consent; an identifier alone must not be shown as retrieving a medical history. See the [Ministry of Health's ABDM update](https://www.pib.gov.in/PressReleasePage.aspx?PRID=2003068) and [ABHA explainer](https://www.pib.gov.in/Pressreleaseshare.aspx?PRID=2017129&lang=2&reg=48).
 
-Future work would use the applicable [ABDM sandbox and onboarding process](https://sandbox.abdm.gov.in/sandbox/v3). The [Government of India explanation hosted by ABDM](https://abdm.gov.in/strapicms/uploads/AU_5642_Z2b_V_Ga_f9035b689e.pdf) describes consent-based exchange, sandbox validation and security audits. Verification of identity, record linking, patient consent, permitted data scope, expiry and revocation would need to be implemented before any real record exchange. This is not a live integration or an assertion of approval.
+The checkbox records a simulated choice. It can be skipped and does not affect booking. A future integration needs the applicable [ABDM sandbox and onboarding process](https://sandbox.abdm.gov.in/sandbox/v3). Caregiver messaging permission is separate from record-sharing consent.
 
-## Proposed evaluation
+## Evaluation
 
-**Primary MVP measure:** Follow-up completion rate = tracked follow-up episodes due in the reporting cohort with verified attendance within a care-team-defined window / all tracked follow-up episodes due in that cohort.
+Dashboard figures come from synthetic records. Completion rate is completed episodes divided by episodes whose original due date is on or before the demo day, including initial and follow-up visits. It is not a clinical outcome or a measured improvement.
 
-Fix the cohort and reporting window before measurement. Keep the original due date visible; rescheduling must not silently remove an overdue episode. Report pending, declined, transferred, unreachable and withdrawn cases separately. Define exclusions in advance and show their counts. Never use reminders sent or replies received as the completion numerator.
+For a pilot, define the cohort and completion window with the clinic. Measure referral-to-booking time, document readiness, registration-to-consultation time if both timestamps exist, staff time per task, and verified follow-up completion. Report transfers, withdrawals and unreachable patients separately. Rescheduling must not erase the original due date. No time-saving percentage or reduction in waiting has been measured.
 
-**Secondary measures:** Time from patient reply to staff resolution; overdue episodes with an identified logistical barrier; staff minutes per follow-up task; document-checklist completion at check-in. Measure registration-to-consultation waiting time only if both timestamps are captured.
-
-A longer-term measure can track completion of an entire clinician-defined care pathway. One verified return demonstrates a single follow-up episode, not completion of all diabetes care. All metrics are proposals; there are no baseline values, trial results or proven reductions yet.
-
-## Demonstration checks
-
-- No referral or department: show staff assistance, with no inferred specialty.
-- New booking or message delivery: keep the episode incomplete.
-- Verified attendance: complete only the matching follow-up episode.
-- Patient opt-out or missing caregiver permission: prevent that outreach.
-- ABHA skipped or external services unavailable: finish the synthetic workflow.
-- Clinical question or record upload: keep content out of administrative AI; show staff handling.
-- Duplicate overdue check: do not create duplicate outreach tasks.
+The next step is a care-team walkthrough, followed by a scoped, supervised pilot if the hospital wants to proceed.

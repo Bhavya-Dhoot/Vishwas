@@ -1,84 +1,74 @@
-# Vishwas — copy-ready application
+# Vishwas — copy-ready hackathon application
 
-Prepared for **Bhavya Dhoot** on **3 October 2026**. Paste only the text under each field label, excluding the word/character counts.
+Prepared for **Bhavya Dhoot** on **3 October 2026**. Paste only the answer under each field label. Word and character counts are for checking, not for the form.
 
 | Form field | Answer |
 | --- | --- |
 | Applicant name, if requested | Bhavya Dhoot |
-| Which track are you submitting under? | Diabetes |
-| Who is the primary user of your solution? | Doctor / Care Team |
-| What use case is your team addressing? | Patient Follow-up & Continuity of Care |
-| Name of your solution | Vishwas Care Continuity |
-| Existing work | No - we are building a new solution |
+| Track | Diabetes |
+| Primary user | Doctor / Care Team |
+| Closest use-case heading | Clinic Operations & Patient Flow |
+| Solution name | Vishwas |
+| Existing work | Yes - we are building on an existing product |
 
-The primary operator is the clinic's care coordinator, nurse or OPD team. Patients and consented caregivers are beneficiaries and participants. Use one track and one closest use-case heading.
+The primary operator is a care coordinator, nurse or OPD staff member. Patients start the request from home, and consented caregivers can participate. The chosen heading reflects the first problem Vishwas addresses: arranging the correct specialist and arrival details before the patient travels. Follow-up remains part of the same workflow.
 
 ## The problem you are solving
 
-Diabetes care often involves repeat OPD visits over months or years. Before reaching the hospital, patients may struggle to locate records, find the department named in a referral, or arrange transport and caregiver support. Between visits, language, cost and scheduling barriers can prevent follow-up. Care teams may see a missed appointment without knowing why the patient could not return or whether another visit was booked. Scattered registers, calls and messages make coordination harder. Patients carry the burden of navigating the system, while staff repeatedly chase updates. The gap is operational: helping patients complete follow-up already planned by their clinician, and giving care teams visibility into practical barriers and confirmed attendance.
+Before travelling to a hospital, a person with diabetes may have a referral but no clear way to turn it into the right appointment. They need to know which clinic to visit, which specialist has a slot, where to go and which papers to bring. When these details are settled only after arrival, patients may queue at the wrong desk or make another trip, while staff repeat the same guidance by phone. The next gap comes after the visit: a clinician may set a return date, but missed follow-ups can disappear into separate registers and messages. Travel, work, language or caregiver constraints remain unseen until someone calls. Care teams need a shared view from the patient's request at home through arrival and the next confirmed visit.
 
-**Length:** 110 words; 763 characters. Limit: 150 words / 1,200 characters; minimum: 100 characters.
+**Length:** 126 words; 736 characters. Limit: 150 words / 1,200 characters; minimum: 100 characters.
 
 ## Your solution
 
-Vishwas Care Continuity will help diabetes care teams coordinate patients before and between visits. Staff confirm the referral department and follow-up date. Before arrival, patients gather records and find the booked or referred OPD through a hospital directory; unclear requests go to staff. Afterwards, Vishwas tracks overdue appointments and supports consented multilingual WhatsApp text and voice outreach. AI transcribes logistical replies, categorises practical barriers and drafts administrative responses for staff review, without receiving medical records. Caregivers participate only with permission. Staff help resolve booking or travel issues, and a follow-up is marked completed only after attendance is verified. Optional ABHA-linked record sharing is a future consent-based integration; the demo uses synthetic records and simulated ABHA screens. Vishwas supports navigation and follow-through without diagnosis, medical interpretation, clinical risk scoring, or test and treatment recommendations.
+From home, a patient submits a visit request with their referral department and language. Clinic staff review the referral department remotely; Vishwas does not infer a specialty from symptoms. The care team compares specialists in that department by language and available slots, books one, and the patient sees the time, clinic location and a checklist for referral papers, previous reports and appointment details before travelling. The checklist records presence only; no medical records are uploaded or interpreted. At arrival, staff record check-in and confirm attendance. A clinician-set return date opens a separate follow-up. Vishwas flags it when due, creates consent-based reminders in a simulated WhatsApp inbox and lets patients report practical barriers for staff to handle. Administrative replies require staff approval; caregivers participate with consent. The local prototype uses fictional patients. ABHA consent is simulated. Vishwas gives no diagnosis, risk score, investigation or treatment advice.
 
-**Length:** 133 words; 1015 characters. Limit: 150 words / 1,200 characters; minimum: 100 characters.
+**Length:** 145 words; 1,019 characters. Limit: 150 words / 1,200 characters; minimum: 100 characters.
 
 ## Solution name
 
-Vishwas Care Continuity
+Vishwas
 
-**Length:** 23 characters; minimum: 5 characters.
+**Length:** 7 characters; minimum: 5 characters.
 
-## Scope guardrail
+## Scope confirmation
 
-For the administrative scope described here, select the confirmation:
+Select the confirmation that the solution stays outside the form's excluded clinical scope. If a text explanation is requested, use:
 
-> I confirm our solution stays outside the out-of-scope list above - it does not diagnose, recommend treatment, provide clinical decision support, or give autonomous clinical advice.
+> Vishwas takes a referral request before travel, then coordinates the appointment after staff confirm the department. It does not diagnose, select a department from symptoms, interpret medical records, score clinical risk, suggest investigations or treatment, or provide autonomous clinical advice. Staff approval would not make those excluded functions part of this proposal.
 
-The supplied form also excludes clinical risk scoring and interpretation of medical data. These are excluded from the proposal.
-
-The initial idea's symptom/history-based triage, AI specialist selection and suggested investigations are outside this submission. Adding nurse or doctor approval would not remove them from the form's excluded categories. Staff confirm an already documented referral department and follow-up date. Records can be collected for the consultation; their clinical contents are not analysed by the platform's AI.
+The checklist records whether documents are present, not what they contain. The prototype does not upload medical records. A clinical question in the demo goes to staff without an automated advice draft.
 
 ## How you will build it
 
-Next.js/React, TypeScript, Node.js route handlers and PostgreSQL. Scheduled queries flag overdue appointments. WhatsApp Cloud API supports outreach, with a mock channel for demos. OpenAI speech-to-text and Responses APIs provide transcription, structured logistical-barrier categories and staff-reviewed reply drafts; medical records stay outside these AI calls. ABHA and hospital attendance integrations are simulated initially. Deploy the web prototype on Vercel.
+The local prototype uses Node.js 22 with built-in HTTP and SQLite, plus responsive vanilla JavaScript and CSS. It stores referral, booking, checklist, check-in and follow-up actions. Reminders and staff-approved replies appear in a simulated WhatsApp inbox; a demo clock makes due dates testable. An optional OpenAI Responses API drafting adapter is implemented but unconfigured; clinic templates work without it. ABHA consent is simulated; live messaging and ABDM connections need separate integration.
 
-**Length:** 58 words; 465 characters. Limit: 80 words / 600 characters; minimum: 30 characters.
+**Length:** 71 words; 503 characters. Limit: 80 words / 600 characters; minimum: 30 characters.
 
-All technologies describe a proposed implementation. They are not claims that the product or integrations have already been built. The approach uses [Next.js route handlers](https://nextjs.org/docs/app/getting-started/route-handlers), [OpenAI speech-to-text](https://developers.openai.com/api/docs/guides/speech-to-text) and [structured model outputs](https://developers.openai.com/api/docs/guides/structured-outputs).
+The described local implementation uses built-in Node.js HTTP and SQLite with a browser interface. The messaging inbox, ABHA consent and patients are simulated. The optional OpenAI Responses API adapter is implemented and unit-tested against a mocked provider, but has no live credentials. Clinic templates work without it. No live AI, WhatsApp or ABDM connection is claimed. Local persistence is not a claim of production readiness.
 
 ## Existing work
 
-Select:
+Select the form's **Yes - we are building on an existing product** choice if it asks whether any part has already been built. If an explanation is requested, use:
 
-> No - we are building a new solution
+> We began with the concept and an existing pitch deck. During submission preparation, we built a small local prototype of the patient request, referral review, booking and follow-up workflow using fictional data. This is a new solution, with no prior launched product or live hospital integration.
 
-If an explanation is requested:
-
-> We are building a new solution. Before this submission, we had developed the concept and a pitch deck, but no product or prototype code. This repository contains submission and planning documents; implementation is planned.
-
-This declaration reflects the applicant's confirmation. If implementation is added before the final submission, update the statement to disclose that work accurately.
+The local workflow and the patient-initiated pre-arrival journey passed automated and browser checks; see the [verification record](verification.md). If the form's “existing product” wording refers strictly to a product launched before this hackathon, explain this distinction in its free-text field rather than implying prior deployment.
 
 ## Pitch deck
 
-Upload the existing deck after aligning it with the submission: **6–8 slides, PDF or PowerPoint, maximum 25 MB**. The deck was not provided here and has not been checked or edited.
-
-[Deck context and narrative](pitch-deck-context.md) contains a seven-slide content map and a 60-second pitch. This document is supporting context, not a replacement upload.
+The applicant reports an existing deck, but it was not supplied for review or upload here. The form requests **6–8 slides, PDF or PowerPoint, maximum 25 MB**. [Deck context and narrative](pitch-deck-context.md) shows how to align it with this application. Do not claim the deck has been reviewed or uploaded.
 
 ## Links and supporting files
 
-Paste this repository URL into the optional links field:
+Optional supporting link:
 
 https://github.com/Bhavya-Dhoot/Vishwas
 
-The repository is public and contains the proposal and build plan. Describe it as a submission repository, not a working prototype.
-
-Leave LinkedIn, video and prototype URL fields blank unless you have an actual public link. No LinkedIn identity, demo deployment, partnership or paper has been invented. Do not put a GitHub repository in a field that specifically asks for a playable video or live app.
+Describe the repository as a local synthetic-data prototype with its source code, screenshots and submission documents. Leave LinkedIn, video and prototype URL fields blank unless an actual public link is available. Do not present the repository as a playable video, deployed app or pilot.
 
 ## ABHA context
 
-Use **Ayushman Bharat Health Account (ABHA)** under the **Ayushman Bharat Digital Mission (ABDM)**. ABHA is a voluntary 14-digit health identifier, as confirmed in the [Ministry of Health's ABDM update](https://www.pib.gov.in/PressReleasePage.aspx?PRID=2003068). Record sharing is based on patient consent; the [Ministry of Health explainer](https://www.pib.gov.in/Pressreleaseshare.aspx?PRID=2017129&lang=2&reg=48) describes linked-record access and consent.
+Use **Ayushman Bharat Health Account (ABHA)** under the **Ayushman Bharat Digital Mission (ABDM)**. ABHA is a voluntary 14-digit health identifier, as confirmed in the [Ministry of Health's ABDM update](https://www.pib.gov.in/PressReleasePage.aspx?PRID=2003068). The [Ministry of Health explainer](https://www.pib.gov.in/Pressreleaseshare.aspx?PRID=2017129&lang=2&reg=48) describes consent-based access to linked records.
 
-For this proposal, optional ABHA support means a clearly simulated consent journey now, with a future integration through applicable ABDM onboarding. Entering a number alone must not be presented as fetching a patient's entire medical history. ABHA also does not establish PM-JAY insurance eligibility. See the [official explainer](https://www.pib.gov.in/Pressreleaseshare.aspx?PRID=2017129&lang=2&reg=48).
+Here, ABHA is an optional simulated consent step. It does not fetch records. A future integration would require applicable ABDM onboarding and patient consent. ABHA does not establish PM-JAY insurance eligibility.
