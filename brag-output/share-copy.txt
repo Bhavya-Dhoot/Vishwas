@@ -1,0 +1,3 @@
+Know where to go before you travel. Vishwas lets a fictional patient request a visit from home, gives staff a referral-confirmed route, and keeps the follow-up open until attendance is verified. Local synthetic prototype; WhatsApp and ABHA are simulated.
+
+Source: https://github.com/Bhavya-Dhoot/Vishwas
