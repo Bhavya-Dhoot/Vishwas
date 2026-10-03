@@ -1,54 +1,45 @@
-# Vishwas — context for the existing pitch deck
+# Vishwas — content for the existing pitch deck
 
-**Applicant:** Bhavya Dhoot
+**Bhavya Dhoot · Diabetes · Doctor / Care Team · Clinic Operations & Patient Flow**
 
-**Track:** Diabetes
+The form requires 6–8 slides, PDF or PowerPoint, maximum 25 MB. The existing deck was not supplied. These are content notes, not a designed or reviewed presentation.
 
-**Primary user:** Doctor / Care Team
+**Core idea:** The hospital visit starts at home. A patient provides their existing referral department, supporting files and appointment preferences. Rules send the enquiry to the department's inbox. One acceptance triggers doctor assignment and scheduling. After attendance, the same journey tracks the clinician's return date, reminders, practical barriers and confirmed return attendance.
 
-**Closest heading:** Clinic Operations & Patient Flow
-**Stage:** New solution with a small local prototype prepared for this submission; fictional patients and simulated integrations.
-
-**Deck requirement:** 6–8 slides, PDF or PowerPoint, maximum 25 MB.
-
-The existing deck was not supplied for inspection. These notes align its story with the application; this file is not a designed presentation.
-
-**One-line pitch:** Know where to go before you travel. Keep the next visit on track.
-
-**Core idea:** Vishwas starts the hospital visit before the patient leaves home. Staff confirm the referral department remotely and arrange an available specialist, appointment time, room and preparation checklist. The same journey continues through attendance, the clinician's return date and consent-based follow-up.
-
-**What connects the workflow:** The patient starts a request before travel. Staff review the referral department remotely, book an available specialist and share the slot, location and document checklist with the patient before arrival. Check-in and a clinician-set return date lead to a separate follow-up for consent-based reminders and staff handling of practical barriers. This is a product design, not a measured outcome or a claim of uniqueness.
+**One-line pitch:** From a referral at home to an arranged hospital visit—and a follow-up that stays visible.
 
 ## Eight-slide narrative
 
-| Slide | Point to make | Suggested visual or evidence |
+| Slide | Main content | Suggested visual |
 | --- | --- | --- |
-| 1. Vishwas | Bhavya Dhoot; Diabetes track; care teams as the primary user. A patient starts a referral request from home. | One fictional journey from home to clinic |
-| 2. Before travelling | A referral can name a department while specialist availability, directions and document preparation remain scattered. Settling these details after arrival can mean a wrong queue or another trip. | Fictional patient at home with a referral; no invented hospital figures |
-| 3. Preparing the first visit | Staff review the referral department remotely. The team compares specialists in that department by language and slots, books one, and the patient sees the time, location and document-presence checklist before travelling. | Patient request, staff review, booking and patient plan while check-in is still pending |
-| 4. The return visit | After verified check-in and attendance, a clinician-set return date creates a separate follow-up. Consent-based reminders appear in a simulated WhatsApp inbox. | Timeline with initial and follow-up episodes |
-| 5. When a patient cannot return | The patient reports a practical barrier; staff review an administrative reply, help with booking and confirm attendance later. A message or reschedule is not completion. | Fictional travel barrier and staff action |
-| 6. What runs today | Local Node.js, SQLite and browser prototype; synthetic records; simulated WhatsApp and ABHA consent. Optional OpenAI drafting adapter is unconfigured and uses clinic templates without it. No clinical inference or advice. | Screens from the actual local workflow; keep simulated labels visible |
-| 7. Patient data security | Design: AES-256-GCM encrypted storage, keys outside the database, and server-checked patient and staff sessions. Implemented and tested in the local prototype. A real deployment still needs HTTPS, managed keys, identity verification and security review. | Browser → access check → workflow → encrypted storage; key shown separately. Show the tested local controls; do not claim E2EE or certification |
-| 8. How we will judge success | Test referral-to-booking time, wrong-desk transfers, staff handling time, document readiness and verified return attendance in a scoped clinic pilot. | Proposed measures, GitHub link and request for a care-team walkthrough. No invented percentage gains |
+| 1. Vishwas | The hospital visit starts at home. Bhavya Dhoot; Diabetes track. | Home → department → appointment → return visit |
+| 2. The coordination gap | A referral does not always come with a confirmed doctor, slot or clear arrival instructions. Staff repeat sorting, booking and follow-up calls. | A fictional patient's referral, schedule and reminders |
+| 3. From home to the department | A short enquiry captures the existing referral department, language, preferences and documents. Rules route known departments; unclear requests go to coordination. | Actual enquiry and department inbox |
+| 4. Accept once, arrange the visit | One department acceptance triggers doctor and slot matching with patient consent. A booking acknowledgement produces the arrival plan; unavailable slots remain exceptions. | Accept → doctor/time → patient plan |
+| 5. Keep the next visit visible | Clinician-set dates trigger consented reminders. Patients report practical barriers. Attendance, rather than a message or reschedule, closes the visit. | Initial and follow-up episodes; simulated message labelled |
+| 6. Connect around existing systems | Browser app and Node.js workflow, configurable directory/availability/booking connector, sample hospital API. Real vendors need mapping and validation. | Architecture from architecture-update.md |
+| 7. Patient data and verification | AES-256-GCM encrypted records off-chain, server access controls, optional salted commitment on Hyperledger Fabric. Integrity is distinct from medical authenticity. | Encrypted vault → commitment only → Fabric |
+| 8. Pilot and evidence | Measure enquiry-to-booking time, staff actions per booking, wrong-desk transfers, preparation readiness and return attendance. Ask for a care-team workflow trial. | Working prototype evidence, GitHub and proposed measures |
 
 ## 60-second pitch
 
-Before travelling to the hospital, a patient with diabetes submits a visit request with their referral department and language in Vishwas. Clinic staff review the referral department remotely. They compare available specialists in that department by language and slot, then book one. The patient can see the appointment time, clinic location and a short checklist before leaving home. No medical record is uploaded or interpreted; the checklist only marks whether papers are present. Staff verify check-in and attendance at the clinic. If the clinician sets a return date, Vishwas opens a separate follow-up and creates consent-based reminders in a simulated WhatsApp inbox. When travel, work or another practical barrier gets in the way, staff can review an administrative reply and help rebook. The local prototype uses fictional data. It does not choose a specialty from symptoms or give clinical advice.
+A patient should not need to reach the hospital before anyone starts arranging their visit. With Vishwas, a person with diabetes sends a short enquiry from home, including the department named in their referral, supporting documents and appointment preferences. The request reaches that department's inbox automatically. Once the department accepts, Vishwas assigns an available doctor and schedules a compatible slot with the patient's consent. The patient sees where to go, when to arrive and what to bring. A configurable connector exchanges schedules and booking acknowledgements with a sample hospital API. Records stay encrypted off-chain; an optional Hyperledger Fabric commitment supports later integrity checks. After the consultation, clinician-set return dates drive reminders and barrier handling until attendance is confirmed. We are demonstrating this with fictional data. A pilot will measure whether staff handle fewer routine steps and patients arrive with a clearer plan.
 
-## Demo script for the local prototype
+## Demonstration sequence
 
-1. In the patient view, create a fictional request from home with a referral note. Do not upload medical records or infer a specialty from symptoms.
-2. In the staff view, review and confirm the referral department remotely. Compare specialists in that department by English or Hindi preference and slot availability, then book an available slot.
-3. Return to the patient's journey to show the booked time, clinic location and checklist before arrival, while check-in is still pending. Mark only whether referral papers, previous reports and appointment details are present.
-4. At the clinic, record check-in and staff-confirmed attendance for the initial visit. Enter a clinician-set follow-up date.
-5. Advance the demonstration date. Show a consent-based reminder in the simulated WhatsApp inbox.
-6. Record a fictional logistical reply, such as “I could not arrange transport.” Show the administrative draft for staff approval. A medical question goes to staff without an automatic advice draft.
-7. Reschedule if needed. Show that the episode stays open until check-in and attendance are verified.
-8. Show optional simulated ABHA consent. Do not imply that it retrieves records.
+1. Submit a fictional enquiry from home with an explicit referral department and automatic-scheduling consent.
+2. Upload a synthetic file and show optional consent to a Fabric commitment.
+3. Open the department's inbox and accept once.
+4. Show the assigned doctor, compatible slot, booking acknowledgement and patient plan before check-in.
+5. Show a missing department entering coordination and an unavailable slot remaining waitlisted.
+6. Verify the file against Fabric only after a real successful anchor; show pending/failed status honestly if unavailable.
+7. Record attendance and a clinician-set return date; exercise the simulated reminder and barrier flow.
+8. Confirm return attendance. A reply or booking alone does not complete the visit.
 
-## Claims to remove from the old deck if present
+## Implementation labels
 
-Remove “AI triage”, “best specialist based on symptoms”, “recommended tests”, “clinical risk prediction”, “medical-record interpretation”, “guaranteed return”, “ABHA automatically retrieves all records” and unsupported percentage improvements. Avoid claims of live WhatsApp, ABDM, OpenAI or hospital integrations, a deployed app, or measured outcomes.
+The routing and encrypted document APIs have automated coverage. The interface, sample connector and local Fabric network are being integrated; use docs/verification.md for final evidence before calling the combined flow verified. WhatsApp delivery and ABHA remain simulated. Optional AI drafts administrative replies only; live provider calls remain unverified. There is no live hospital pilot or measured waiting-time improvement.
 
-Use the actual local stack and label all synthetic data and simulated steps. The existing deck has not been checked against this list.
+## Claims to remove
+
+Remove AI diagnosis, clinical triage, specialty selection from symptoms, suggested tests, guaranteed return, medical records on-chain, universal hospital compatibility, live ABDM retrieval and unsupported percentage gains. Use explicit referral routing, one acceptance followed by automatic scheduling, encrypted records off-chain and configurable sample connector.

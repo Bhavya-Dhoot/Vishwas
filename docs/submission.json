@@ -1,18 +1,18 @@
 {
   "prepared_on": "2026-10-03",
-  "status": "Working local synthetic-data prototype; 13 automated tests and full patient-to-staff browser journey passed, including encrypted storage and server authorization; no live external integrations or public deployment",
+  "status": "Architecture revision: routing and encrypted document APIs implemented with automated tests; combined UI, sample hospital connector and local Hyperledger Fabric verification are being integrated. No live hospital deployment.",
   "form": {
     "applicant_name": "Bhavya Dhoot",
     "track": "Diabetes",
     "primary_user": "Doctor / Care Team",
     "use_case": "Clinic Operations & Patient Flow",
     "solution_name": "Vishwas",
-    "problem": "Before travelling to a hospital, a person with diabetes may have a referral but no clear way to turn it into the right appointment. They need to know which clinic to visit, which specialist has a slot, where to go and which papers to bring. When these details are settled only after arrival, patients may queue at the wrong desk or make another trip, while staff repeat the same guidance by phone. The next gap comes after the visit: a clinician may set a return date, but missed follow-ups can disappear into separate registers and messages. Travel, work, language or caregiver constraints remain unseen until someone calls. Care teams need a shared view from the patient's request at home through arrival and the next confirmed visit.",
-    "solution": "From home, a patient submits a visit request with their referral department and language. Clinic staff review the referral department remotely; Vishwas does not infer a specialty from symptoms. The care team compares specialists in that department by language and available slots, books one, and the patient sees the time, clinic location and a checklist for referral papers, previous reports and appointment details before travelling. The checklist records presence only; no medical records are uploaded or interpreted. At arrival, staff record check-in and confirm attendance. A clinician-set return date opens a separate follow-up. Vishwas flags it when due, creates consent-based reminders in a simulated WhatsApp inbox and lets patients report practical barriers for staff to handle. Administrative replies require staff approval; caregivers participate with consent. The local prototype uses fictional patients. ABHA consent is simulated. Vishwas gives no diagnosis, risk score, investigation or treatment advice.",
-    "technology": "The prototype uses a responsive JavaScript interface with Node.js 22 and SQLite. Stored data is encrypted with AES-256-GCM; keys are separate and staff/patient sessions are checked on the server. A demo clock and simulated WhatsApp inbox exercise routing, reminders and return visits. An optional OpenAI Responses API adapter drafts administrative replies from limited inputs for staff approval. ABHA consent is simulated; live WhatsApp and ABDM connections remain future integrations.",
+    "problem": "A person with diabetes may have a referral and previous reports but still arrive at hospital without knowing which clinic will receive them or whether a suitable doctor is available. Staff then spend time redirecting patients, checking papers and coordinating appointments across desks and phone calls. These arrangements could begin while the patient is still at home. After the consultation, return dates and missed visits are often tracked separately, leaving care teams to discover travel, work or language barriers through repeated calls. Vishwas addresses this coordination gap for patients, caregivers and hospital teams: getting an existing referral into the correct department's queue before arrival, arranging the appointment and keeping the next visit visible.",
+    "solution": "Vishwas starts with a short enquiry from home: the department named in an existing referral, uploaded documents, language and appointment preferences. Published routing rules send the request to that department's inbox; an unclear referral goes to a coordination inbox. After the department accepts once, Vishwas assigns an available doctor and schedules a compatible slot with the patient's consent. The patient receives the appointment, location and preparation checklist before travelling. A configurable hospital connector exchanges directories, availability and booking acknowledgements. Uploaded files stay encrypted off-chain; an optional Hyperledger Fabric record holds only a salted verification commitment. After the visit, clinician-set return dates drive reminders, barrier handling and attendance tracking. The demo uses fictional patients, a sample hospital API and simulated messaging. Vishwas does not interpret records, diagnose, recommend tests or treatment, or infer a specialty from symptoms.",
+    "technology": "We use a JavaScript web app, Node.js 22 and encrypted SQLite storage. Versioned rules route explicit referrals; deterministic scheduling checks department, language, preferences and capacity. A configurable REST connector integrates a sample hospital API. AES-256-GCM protects records; server sessions enforce access. Hyperledger Fabric stores salted document commitments, with files off-chain. Optional OpenAI drafting supports administrative replies. WhatsApp delivery and ABHA consent remain simulated.",
     "existing_work": "No - we are building a new solution",
-    "existing_work_detail": "We began with the concept and an existing pitch deck. During submission preparation, we built a small local prototype of the patient request, referral review, booking and follow-up workflow using fictional data. This is a new solution, with no prior launched product or live hospital integration.",
-    "scope_confirmation": "Vishwas takes a referral request before travel, then coordinates the appointment after staff confirmation. It does not diagnose, select a department from symptoms, interpret medical records, score clinical risk, suggest investigations or treatment, or provide autonomous clinical advice.",
+    "existing_work_detail": "We started with the concept and an existing pitch deck. The local prototype was built during submission preparation using fictional patients. This is a new solution, with no prior launched product or live hospital integration.",
+    "scope_confirmation": "Vishwas routes an explicitly stated referral department and coordinates available appointments. It does not interpret uploaded medical records, select a specialty from symptoms, diagnose, score clinical risk, suggest investigations or treatment, or give autonomous clinical advice. Unclear requests enter a coordination inbox.",
     "supporting_links": [
       "https://github.com/Bhavya-Dhoot/Vishwas",
       "https://raw.githubusercontent.com/Bhavya-Dhoot/Vishwas/main/brag-output/brag.mp4"
@@ -24,20 +24,20 @@
   },
   "validation": {
     "problem": {
-      "words": 126,
-      "characters": 736,
+      "words": 113,
+      "characters": 771,
       "word_limit": 150,
       "character_limit": 1200
     },
     "solution": {
-      "words": 145,
-      "characters": 1019,
+      "words": 136,
+      "characters": 1012,
       "word_limit": 150,
       "character_limit": 1200
     },
     "technology": {
-      "words": 69,
-      "characters": 485,
+      "words": 63,
+      "characters": 505,
       "word_limit": 80,
       "character_limit": 600
     },
@@ -49,7 +49,7 @@
   "disclosure": {
     "prior_work_confirmed_by_applicant": true,
     "prior_work": "Concept and existing deck preceded submission preparation; local prototype made for this submission",
-    "prototype_status_requires_final_verification": false,
+    "prototype_status_requires_final_verification": true,
     "clinical_scope": "Administrative coordination only; no clinical inference or advice",
     "messaging_demo": "Simulated WhatsApp inbox; no actual messages sent",
     "abha_demo": "Simulated consent; no record retrieval",
@@ -57,6 +57,10 @@
     "measurements": "No measured patient outcomes",
     "deck_reviewed": false,
     "form_submitted": false,
-    "security": "AES-256-GCM encrypted snapshots and server-authorized sessions implemented and tested. Local HTTP evaluation only; not production certification or end-to-end encryption."
+    "security": "AES-256-GCM encrypted workflow and document storage with server authorization. Fabric is being integrated as a permissioned verification layer for salted commitments only. Not end-to-end encryption or a compliance certification.",
+    "routing": "Explicit referral department or exact directory label only; no medical interpretation. Department accepts once, followed by consented deterministic assignment and scheduling.",
+    "hospital_connector": "Configurable sample hospital API under integration; vendor mapping, credentials and operational validation required for a real hospital.",
+    "blockchain": "Local Hyperledger Fabric integration in progress; do not claim a verified live ledger until the verification record confirms it. No patient documents, names, identifiers or raw document hashes on-chain.",
+    "video": "The current published video shows the preceding manual-booking workflow. A revision will follow integration verification."
   }
 }
