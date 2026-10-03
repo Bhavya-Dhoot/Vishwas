@@ -1,6 +1,6 @@
 {
   "prepared_on": "2026-10-03",
-  "status": "Working local synthetic-data prototype; automated, full-journey and two-client pre-arrival browser checks passed; no live external integrations or public deployment",
+  "status": "Working local synthetic-data prototype; 13 automated tests and full patient-to-staff browser journey passed, including encrypted storage and server authorization; no live external integrations or public deployment",
   "form": {
     "applicant_name": "Bhavya Dhoot",
     "track": "Diabetes",
@@ -9,16 +9,17 @@
     "solution_name": "Vishwas",
     "problem": "Before travelling to a hospital, a person with diabetes may have a referral but no clear way to turn it into the right appointment. They need to know which clinic to visit, which specialist has a slot, where to go and which papers to bring. When these details are settled only after arrival, patients may queue at the wrong desk or make another trip, while staff repeat the same guidance by phone. The next gap comes after the visit: a clinician may set a return date, but missed follow-ups can disappear into separate registers and messages. Travel, work, language or caregiver constraints remain unseen until someone calls. Care teams need a shared view from the patient's request at home through arrival and the next confirmed visit.",
     "solution": "From home, a patient submits a visit request with their referral department and language. Clinic staff review the referral department remotely; Vishwas does not infer a specialty from symptoms. The care team compares specialists in that department by language and available slots, books one, and the patient sees the time, clinic location and a checklist for referral papers, previous reports and appointment details before travelling. The checklist records presence only; no medical records are uploaded or interpreted. At arrival, staff record check-in and confirm attendance. A clinician-set return date opens a separate follow-up. Vishwas flags it when due, creates consent-based reminders in a simulated WhatsApp inbox and lets patients report practical barriers for staff to handle. Administrative replies require staff approval; caregivers participate with consent. The local prototype uses fictional patients. ABHA consent is simulated. Vishwas gives no diagnosis, risk score, investigation or treatment advice.",
-    "technology": "We are building a responsive JavaScript interface on Node.js 22 and SQLite. The security design uses AES-256-GCM for stored data, separate encryption keys, and server-checked staff and patient sessions. A demo clock and simulated WhatsApp inbox make routing, reminders and return visits testable. An optional OpenAI Responses API adapter drafts administrative replies from limited inputs for staff approval. ABHA consent is simulated; live WhatsApp and ABDM connections remain future integrations.",
+    "technology": "The prototype uses a responsive JavaScript interface with Node.js 22 and SQLite. Stored data is encrypted with AES-256-GCM; keys are separate and staff/patient sessions are checked on the server. A demo clock and simulated WhatsApp inbox exercise routing, reminders and return visits. An optional OpenAI Responses API adapter drafts administrative replies from limited inputs for staff approval. ABHA consent is simulated; live WhatsApp and ABDM connections remain future integrations.",
     "existing_work": "No - we are building a new solution",
     "existing_work_detail": "We began with the concept and an existing pitch deck. During submission preparation, we built a small local prototype of the patient request, referral review, booking and follow-up workflow using fictional data. This is a new solution, with no prior launched product or live hospital integration.",
     "scope_confirmation": "Vishwas takes a referral request before travel, then coordinates the appointment after staff confirmation. It does not diagnose, select a department from symptoms, interpret medical records, score clinical risk, suggest investigations or treatment, or provide autonomous clinical advice.",
     "supporting_links": [
-      "https://github.com/Bhavya-Dhoot/Vishwas"
+      "https://github.com/Bhavya-Dhoot/Vishwas",
+      "https://raw.githubusercontent.com/Bhavya-Dhoot/Vishwas/main/brag-output/brag.mp4"
     ],
     "pitch_deck_status": "Existing deck reported by applicant; not provided for review or uploaded here. Form requests 6–8 slides, PDF or PowerPoint, maximum 25 MB.",
     "prototype_url": null,
-    "video_url": null,
+    "video_url": "https://raw.githubusercontent.com/Bhavya-Dhoot/Vishwas/main/brag-output/brag.mp4",
     "linkedin_url": null
   },
   "validation": {
@@ -35,8 +36,8 @@
       "character_limit": 1200
     },
     "technology": {
-      "words": 70,
-      "characters": 497,
+      "words": 69,
+      "characters": 485,
       "word_limit": 80,
       "character_limit": 600
     },
@@ -56,6 +57,6 @@
     "measurements": "No measured patient outcomes",
     "deck_reviewed": false,
     "form_submitted": false,
-    "security": "AES-256-GCM encrypted storage and server-authorized sessions being implemented and verified; not production certification or end-to-end encryption"
+    "security": "AES-256-GCM encrypted snapshots and server-authorized sessions implemented and tested. Local HTTP evaluation only; not production certification or end-to-end encryption."
   }
 }

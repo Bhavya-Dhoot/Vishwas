@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
+import { seal, unseal } from './security.mjs';
 
 const DAY = '2026-10-03';
 const STAMP = `${DAY}T09:00:00.000Z`;
@@ -59,6 +60,23 @@ export function seedState() {
   };
 }
 
+function emptyState() {
+  const state = seedState();
+  state.today = new Date().toISOString().slice(0, 10);
+  state.slots = [];
+  for (let offset = 0; offset < 21; offset++) {
+    const day = new Date(`${state.today}T00:00:00.000Z`);
+    day.setUTCDate(day.getUTCDate() + offset);
+    const date = day.toISOString().slice(0, 10);
+    for (const specialist of specialists) for (const [period, time] of [['morning', '10:00'], ['afternoon', '14:00']]) {
+      state.slots.push({ id: `${specialist.id}_${date}_${period}`, specialistId: specialist.id, date, time, capacity: 2 });
+    }
+  }
+  state.patients = [];
+  state.episodes = [];
+  return state;
+}
+
 export class WorkflowError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
@@ -115,6 +133,7 @@ function metrics(state) {
 function publicState(state, aiMode) {
   const view = structuredClone(state);
   view.integrations.ai = aiMode;
+  view.integrations.storage = 'Encrypted SQLite';
   return { ...view, metrics: metrics(state) };
 }
 
@@ -148,7 +167,7 @@ function runReminders(state) {
   return { count };
 }
 
-function apply(state, type, payload) {
+function apply(state, type, payload, actor, demoMode) {
   let result = {};
   switch (type) {
     case 'create_patient': {
@@ -166,16 +185,16 @@ function apply(state, type, payload) {
       newEpisode.referralNote = referralNote;
       newEpisode.createdAt = now();
       state.episodes.push(newEpisode);
-      log(state, episodeId, type, 'Staff (Demo)', 'Created patient and routing episode');
+      log(state, episodeId, type, actor, 'Created patient and routing episode');
       result = { patientId, episodeId };
       break;
     }
     case 'confirm_route': {
-      fields(payload, ['episodeId', 'departmentId', 'confirmedBy', 'referralNote']);
+      fields(payload, ['episodeId', 'departmentId', 'referralNote']);
       const episode = getEpisode(state, nonempty(payload.episodeId, 'episodeId'));
       const departmentId = nonempty(payload.departmentId, 'departmentId');
       if (!state.departments.some(d => d.id === departmentId)) invalid('Unknown departmentId');
-      const confirmedBy = nonempty(payload.confirmedBy, 'confirmedBy');
+      const confirmedBy = actor;
       const referralNote = string(payload.referralNote, 'referralNote');
       if (episode.slotId || !['needs_route', 'ready_to_book'].includes(episode.status)) conflict('Route can only be confirmed before first booking');
       episode.departmentId = departmentId;
@@ -199,7 +218,7 @@ function apply(state, type, payload) {
       episode.slotId = slot.id;
       episode.status = 'booked';
       if (episode.kind === 'initial' && !episode.originalDueDate) episode.originalDueDate = episode.dueDate = slot.date;
-      log(state, episode.id, type, 'Staff (Demo)', `Booked ${slot.date} ${slot.time} with ${specialist.name}`);
+      log(state, episode.id, type, actor, `Booked ${slot.date} ${slot.time} with ${specialist.name}`);
       break;
     }
     case 'checklist': {
@@ -207,7 +226,7 @@ function apply(state, type, payload) {
       const episode = getEpisode(state, nonempty(payload.episodeId, 'episodeId'));
       const item = episode.checklist.find(c => c.id === nonempty(payload.documentId, 'documentId')) ?? missing('Checklist item not found');
       item.ready = boolean(payload.ready, 'ready');
-      log(state, episode.id, type, 'Staff (Demo)', `${item.label}: ${item.ready ? 'present' : 'missing'}`);
+      log(state, episode.id, type, actor, `${item.label}: ${item.ready ? 'present' : 'missing'}`);
       break;
     }
     case 'check_in': {
@@ -218,13 +237,13 @@ function apply(state, type, payload) {
       if (!slot || slot.date > state.today) conflict('Check-in is only available on or after the slot date');
       episode.status = 'checked_in';
       episode.checkedInAt = now();
-      log(state, episode.id, type, 'Staff (Demo)', 'Patient checked in');
+      log(state, episode.id, type, actor, 'Patient checked in');
       break;
     }
     case 'complete_visit': {
-      fields(payload, ['episodeId', 'confirmedBy', 'evidence'], ['followUpDate']);
+      fields(payload, ['episodeId', 'evidence'], ['followUpDate']);
       const visit = getEpisode(state, nonempty(payload.episodeId, 'episodeId'));
-      const confirmedBy = nonempty(payload.confirmedBy, 'confirmedBy');
+      const confirmedBy = actor;
       const evidence = nonempty(payload.evidence, 'evidence');
       const followUpDate = payload.followUpDate === undefined ? null : date(payload.followUpDate, 'followUpDate');
       if (visit.status !== 'checked_in') conflict('Checked-in episode required to complete visit');
@@ -264,13 +283,13 @@ function apply(state, type, payload) {
           : `Vishwas demo: Our team will review your request about ${label}. This is a simulated administrative draft.`;
         state.messages.unshift({ id: uid('message'), episodeId: episode.id, patientId: patient.id, direction: 'outbound', recipient: 'patient', kind: 'reply', barrier: payload.barrier, draftRevision: 0, language: patient.language, text, status: 'draft', source: 'clinic_template', approvedBy: null, createdAt: now(), reminderKey: null });
       }
-      log(state, episode.id, type, 'Patient (Demo)', `Barrier: ${payload.barrier}`);
+      log(state, episode.id, type, actor, `Barrier: ${payload.barrier}`);
       break;
     }
     case 'approve_message': {
-      fields(payload, ['messageId', 'approvedBy']);
+      fields(payload, ['messageId']);
       const message = state.messages.find(m => m.id === nonempty(payload.messageId, 'messageId')) ?? missing('Message not found');
-      const approvedBy = nonempty(payload.approvedBy, 'approvedBy');
+      const approvedBy = actor;
       if (message.direction !== 'outbound' || message.status !== 'draft') conflict('Outbound draft required');
       const patient = getPatient(state, message.patientId);
       if (message.recipient === 'patient' && !patient.contactConsent || message.recipient === 'caregiver' && (!patient.caregiverConsent || !patient.caregiverName)) conflict('Current recipient consent required');
@@ -280,9 +299,9 @@ function apply(state, type, payload) {
       break;
     }
     case 'resolve_barrier': {
-      fields(payload, ['episodeId', 'resolvedBy', 'note']);
+      fields(payload, ['episodeId', 'note']);
       const episode = getEpisode(state, nonempty(payload.episodeId, 'episodeId'));
-      const resolvedBy = nonempty(payload.resolvedBy, 'resolvedBy');
+      const resolvedBy = actor;
       const note = nonempty(payload.note, 'note');
       if (!episode.needsHelp) conflict('No active barrier to resolve');
       episode.needsHelp = false;
@@ -300,23 +319,25 @@ function apply(state, type, payload) {
       patient.contactConsent = contactConsent;
       patient.caregiverConsent = caregiverConsent;
       patient.caregiverName = caregiverName;
-      log(state, null, type, 'Staff (Demo)', `Consent updated for ${patient.id}`);
+      log(state, null, type, actor, `Consent updated for ${patient.id}`);
       break;
     }
     case 'abha_consent': {
       fields(payload, ['patientId', 'consent']);
       const patient = getPatient(state, nonempty(payload.patientId, 'patientId'));
       patient.abhaConsent = boolean(payload.consent, 'consent');
-      log(state, null, type, 'Staff (Demo)', `Simulated ABHA consent ${patient.abhaConsent ? 'enabled' : 'disabled'} for ${patient.id}`);
+      log(state, null, type, actor, `Simulated ABHA consent ${patient.abhaConsent ? 'enabled' : 'disabled'} for ${patient.id}`);
       break;
     }
     case 'set_date': {
+      if (!demoMode) invalid('Demo date is unavailable');
       fields(payload, ['date']);
       state.today = date(payload.date, 'date');
-      log(state, null, type, 'Staff (Demo)', `Demo date set to ${state.today}`);
+      log(state, null, type, actor, `Demo date set to ${state.today}`);
       break;
     }
     case 'reset_demo': {
+      if (!demoMode) invalid('Demo reset is unavailable');
       fields(payload, []);
       Object.assign(state, seedState());
       break;
@@ -326,14 +347,18 @@ function apply(state, type, payload) {
   return result;
 }
 
-export function createWorkflow(dbPath, { aiMode = 'templates' } = {}) {
+export function createWorkflow(dbPath, { aiMode = 'templates', key, demoMode = true } = {}) {
+  if (!Buffer.isBuffer(key) || key.length !== 32) throw new Error('A 32-byte state key is required');
   const db = new DatabaseSync(dbPath);
   db.exec('CREATE TABLE IF NOT EXISTS app_state (id INTEGER PRIMARY KEY CHECK (id = 1), json TEXT NOT NULL)');
   const read = db.prepare('SELECT json FROM app_state WHERE id = 1');
   const write = db.prepare('INSERT INTO app_state (id, json) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json');
-  let state = read.get()?.json;
-  state = state ? JSON.parse(state) : seedState();
-  if (!read.get()) write.run(JSON.stringify(state));
+  let state;
+  try {
+    const stored = read.get()?.json;
+    state = stored ? unseal(stored, key) : (demoMode ? seedState() : emptyState());
+    if (!stored) write.run(seal(state, key));
+  } catch (error) { db.close(); throw error; }
   function draftFor(current, id) {
     const message = current.messages.find(m => m.id === id) ?? missing('Message not found');
     if (message.direction !== 'outbound' || message.kind !== 'reply' || message.status !== 'draft') conflict('Administrative outbound draft required');
@@ -344,16 +369,16 @@ export function createWorkflow(dbPath, { aiMode = 'templates' } = {}) {
   }
   return {
     getState: () => publicState(state, aiMode),
-    act(type, payload) {
+    act(type, payload, actor = 'System') {
       if (typeof type !== 'string' || !type) invalid('type must be a nonempty string');
       // ponytail: Whole-state JSON rewrite is fine for this small local demo; normalize tables if record volume grows.
       const next = structuredClone(state);
-      const result = apply(next, type, payload);
-      write.run(JSON.stringify(next));
+      const result = apply(next, type, payload, actor, demoMode);
+      write.run(seal(next, key));
       state = next;
       return { ...publicState(state, aiMode), result };
     },
-    async enhanceDraft(messageId, generator) {
+    async enhanceDraft(messageId, generator, actor = 'System') {
       const id = nonempty(messageId, 'messageId');
       const { message: original, patient } = draftFor(state, id);
       const revision = original.draftRevision ?? 0;
@@ -365,8 +390,8 @@ export function createWorkflow(dbPath, { aiMode = 'templates' } = {}) {
       message.text = generated.text.trim();
       message.source = generated.source;
       message.draftRevision = revision + 1;
-      log(next, message.episodeId, 'enhance_draft', 'Staff (Demo)', `Administrative draft generated by ${generated.source}`);
-      write.run(JSON.stringify(next));
+      log(next, message.episodeId, 'enhance_draft', actor, `Administrative draft generated by ${generated.source}`);
+      write.run(seal(next, key));
       state = next;
       return { ...publicState(state, aiMode), result: { messageId: id } };
     },

@@ -7,20 +7,24 @@ import test from 'node:test';
 import { createApp } from '../server.mjs';
 
 async function start(dbPath) {
-  const app = createApp({ dbPath, enableScheduler: false });
+  const app = createApp({ dbPath, enableScheduler: false, key: '77'.repeat(32) });
   app.server.listen(0, '127.0.0.1');
   await once(app.server, 'listening');
   const base = `http://127.0.0.1:${app.server.address().port}`;
+  const login = await fetch(`${base}/api/session/demo`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ role: 'staff' }) });
+  assert.equal(login.status, 200);
+  const cookie = login.headers.get('set-cookie').split(';')[0];
+  const { csrfToken } = await login.json();
   return {
     get: async () => {
-      const response = await fetch(`${base}/api/state`);
+      const response = await fetch(`${base}/api/state`, { headers: { cookie } });
       assert.equal(response.status, 200);
       return response.json();
     },
     action: async (type, payload = {}, expectedStatus = 200) => {
       const response = await fetch(`${base}/api/actions`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', cookie, 'x-csrf-token': csrfToken },
         body: JSON.stringify({ type, payload }),
       });
       const body = await response.json();
@@ -33,7 +37,7 @@ async function start(dbPath) {
       return body;
     },
     postRaw: async (body, contentType) => fetch(`${base}/api/actions`, {
-      method: 'POST', headers: { 'content-type': contentType }, body,
+      method: 'POST', headers: { 'content-type': contentType, cookie, 'x-csrf-token': csrfToken }, body,
     }),
     close: app.close,
   };
@@ -108,7 +112,7 @@ test('intake to attested visit, separate overdue follow-up, barrier handling, ve
     const { patientId, episodeId } = await intake(api);
     await api.action('book', { episodeId, slotId: firstSlot.id }, 'error');
     await api.action('confirm_route', {
-      episodeId, departmentId, confirmedBy: 'Demo staff', referralNote: 'Reviewed synthetic referral',
+      episodeId, departmentId, referralNote: 'Reviewed synthetic referral',
     });
     await api.action('book', { episodeId, slotId: wrongSlot.id }, 'error');
     await api.action('book', { episodeId, slotId: firstSlot.id, arbitrary: true }, 'error');
@@ -122,16 +126,16 @@ test('intake to attested visit, separate overdue follow-up, barrier handling, ve
     }
     await api.action('set_date', { date: firstSlot.date });
     await api.action('check_in', { episodeId });
-    await api.action('complete_visit', { episodeId, confirmedBy: 'Demo clinician', evidence: '' }, 'error');
+    await api.action('complete_visit', { episodeId, evidence: '' }, 'error');
     const followUpDate = dayAfter(firstSlot.date);
     const completed = await api.action('complete_visit', {
-      episodeId, confirmedBy: 'Demo clinician', evidence: 'Synthetic attendance register', followUpDate,
+      episodeId, evidence: 'Synthetic attendance register', followUpDate,
     });
     const followUpId = completed.result?.episodeId;
     assert.ok(followUpId && followUpId !== episodeId);
     state = await api.get();
     assert.equal(episode(state, episodeId).status, 'completed');
-    assert.equal(episode(state, episodeId).attendanceConfirmedBy, 'Demo clinician');
+    assert.equal(episode(state, episodeId).attendanceConfirmedBy, 'Demo staff');
     assert.equal(episode(state, followUpId).kind, 'follow_up');
     assert.equal(episode(state, followUpId).status, 'ready_to_book');
     assert.equal(episode(state, followUpId).originalDueDate, followUpDate);
@@ -148,9 +152,9 @@ test('intake to attested visit, separate overdue follow-up, barrier handling, ve
     const draft = state.messages.find((m) => m.episodeId === followUpId && m.direction === 'outbound' && m.status === 'draft');
     assert.ok(draft, 'logistics barrier should produce an approval draft');
     assert.equal(episode(state, followUpId).status, 'ready_to_book');
-    await api.action('approve_message', { messageId: draft.id, approvedBy: 'Demo staff' });
+    await api.action('approve_message', { messageId: draft.id,  });
     assert.equal(episode(await api.get(), followUpId).status, 'ready_to_book');
-    await api.action('resolve_barrier', { episodeId: followUpId, resolvedBy: 'Demo staff', note: 'Transport arranged in demo' });
+    await api.action('resolve_barrier', { episodeId: followUpId, note: 'Transport arranged in demo' });
     assert.equal(episode(await api.get(), followUpId).needsHelp, false);
     await api.action('book', { episodeId: followUpId, slotId: laterSlot.id });
     state = await api.get();
@@ -161,7 +165,7 @@ test('intake to attested visit, separate overdue follow-up, barrier handling, ve
     await api.action('set_date', { date: laterSlot.date });
     await api.action('check_in', { episodeId: followUpId });
     await api.action('complete_visit', {
-      episodeId: followUpId, confirmedBy: 'Demo clinician', evidence: 'Synthetic return attendance',
+      episodeId: followUpId, evidence: 'Synthetic return attendance',
     });
     assert.equal(episode(await api.get(), followUpId).status, 'completed');
   } finally {
@@ -189,7 +193,7 @@ test('rescheduling keeps the first due date and does not imply attendance', asyn
     const { episodeId } = await intake(api, { name: 'Demo Reschedule' });
     await api.action('confirm_route', {
       episodeId, departmentId: departmentOf(state, firstSlot),
-      confirmedBy: 'Demo staff', referralNote: 'Synthetic referral',
+      referralNote: 'Synthetic referral',
     });
     await api.action('book', { episodeId, slotId: firstSlot.id });
     const original = episode(await api.get(), episodeId);
@@ -214,16 +218,16 @@ test('capacity, consent, medical barriers, and invalid transitions are enforced 
     assert.ok(slot);
     const departmentId = departmentOf(seed, slot);
     const first = await intake(api, { name: 'Demo Caregiver Case', caregiverConsent: true, caregiverName: 'Demo Helper' });
-    await api.action('confirm_route', { episodeId: first.episodeId, departmentId, confirmedBy: 'Demo staff', referralNote: 'Synthetic referral' });
+    await api.action('confirm_route', { episodeId: first.episodeId, departmentId, referralNote: 'Synthetic referral' });
     await api.action('book', { episodeId: first.episodeId, slotId: slot.id });
     const occupied = (await api.get()).episodes.filter((item) => item.slotId === slot.id).length;
     for (let i = occupied; i < slot.capacity; i++) {
       const next = await intake(api, { name: `Demo Capacity ${i}` });
-      await api.action('confirm_route', { episodeId: next.episodeId, departmentId, confirmedBy: 'Demo staff', referralNote: 'Synthetic referral' });
+      await api.action('confirm_route', { episodeId: next.episodeId, departmentId, referralNote: 'Synthetic referral' });
       await api.action('book', { episodeId: next.episodeId, slotId: slot.id });
     }
     const excess = await intake(api, { name: 'Demo Excess' });
-    await api.action('confirm_route', { episodeId: excess.episodeId, departmentId, confirmedBy: 'Demo staff', referralNote: 'Synthetic referral' });
+    await api.action('confirm_route', { episodeId: excess.episodeId, departmentId, referralNote: 'Synthetic referral' });
     await api.action('book', { episodeId: excess.episodeId, slotId: slot.id }, 'error');
     assert.equal(episode(await api.get(), excess.episodeId).status, 'ready_to_book');
 
@@ -247,12 +251,12 @@ test('capacity, consent, medical barriers, and invalid transitions are enforced 
     assert.equal(episode(state, first.episodeId).status, 'booked');
     await api.action('update_consent', { patientId: first.patientId, contactConsent: false, caregiverConsent: false });
     await api.action('enhance_draft', { messageId: draft.id }, 'error');
-    await api.action('approve_message', { messageId: draft.id, approvedBy: 'Demo staff' }, 'error');
+    await api.action('approve_message', { messageId: draft.id,  }, 'error');
     await api.action('set_date', { date: dayAfter(slot.date) });
     await api.action('run_reminders');
     assert.equal((await api.get()).messages.filter((m) => m.episodeId === first.episodeId && m.kind === 'reminder').length, reminders.length);
     await api.action('update_consent', { patientId: first.patientId, contactConsent: true, caregiverConsent: false });
-    await api.action('approve_message', { messageId: draft.id, approvedBy: 'Demo staff' });
+    await api.action('approve_message', { messageId: draft.id,  });
     await api.action('enhance_draft', { messageId: draft.id }, 'error');
     const beforeMedical = (await api.get()).messages.filter((m) => m.episodeId === first.episodeId && m.direction === 'outbound' && m.status === 'draft').length;
     await api.action('patient_reply', { episodeId: first.episodeId, barrier: 'medical', text: 'Demo clinical question' });
@@ -260,9 +264,9 @@ test('capacity, consent, medical barriers, and invalid transitions are enforced 
     assert.equal(state.messages.filter((m) => m.episodeId === first.episodeId && m.direction === 'outbound' && m.status === 'draft').length, beforeMedical);
     assert.equal(episode(state, first.episodeId).status, 'booked');
 
-    await api.action('complete_visit', { episodeId: first.episodeId, confirmedBy: 'Demo staff', evidence: 'No check-in' }, 'error');
+    await api.action('complete_visit', { episodeId: first.episodeId, evidence: 'No check-in' }, 'error');
     await api.action('checklist', { episodeId: first.episodeId, documentId: 'unknown', ready: true }, 'error');
-    await api.action('confirm_route', { episodeId: first.episodeId, departmentId, confirmedBy: 'Demo staff', referralNote: 'Reroute' }, 'error');
+    await api.action('confirm_route', { episodeId: first.episodeId, departmentId, referralNote: 'Reroute' }, 'error');
     await api.action('not_an_action', {}, 'error');
     await api.action('create_patient', {
       name: 'Demo Invalid', language: 'English', contactConsent: 'yes', caregiverConsent: false,

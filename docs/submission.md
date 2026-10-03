@@ -41,11 +41,11 @@ The checklist records whether documents are present, not what they contain. The 
 
 ## How you will build it
 
-We are building a responsive JavaScript interface on Node.js 22 and SQLite. The security design uses AES-256-GCM for stored data, separate encryption keys, and server-checked staff and patient sessions. A demo clock and simulated WhatsApp inbox make routing, reminders and return visits testable. An optional OpenAI Responses API adapter drafts administrative replies from limited inputs for staff approval. ABHA consent is simulated; live WhatsApp and ABDM connections remain future integrations.
+The prototype uses a responsive JavaScript interface with Node.js 22 and SQLite. Stored data is encrypted with AES-256-GCM; keys are separate and staff/patient sessions are checked on the server. A demo clock and simulated WhatsApp inbox exercise routing, reminders and return visits. An optional OpenAI Responses API adapter drafts administrative replies from limited inputs for staff approval. ABHA consent is simulated; live WhatsApp and ABDM connections remain future integrations.
 
-**Length:** 70 words; 497 characters. Limit: 80 words / 600 characters; minimum: 30 characters.
+**Length:** 69 words; 485 characters. Limit: 80 words / 600 characters; minimum: 30 characters.
 
-The routing and follow-up workflow is implemented locally with fictional data. Encryption and session access controls are being added and verified as part of this build; the paragraph above describes the implementation plan. The optional OpenAI adapter has been tested with mocked responses, and clinic templates work without live credentials. No live AI, WhatsApp or ABDM connection is claimed.
+The routing and follow-up workflow is implemented locally with fictional data. AES-256-GCM storage encryption and server-enforced patient/staff access are implemented and tested. The local app still runs over loopback HTTP; production identity verification, HTTPS and managed keys remain necessary. The optional OpenAI adapter has been tested with mocked responses, and clinic templates work without live credentials. No live AI, WhatsApp or ABDM connection is claimed.
 
 ## Existing work
 
@@ -67,7 +67,7 @@ The applicant reports an existing deck, but it was not supplied for review or up
 
 The intended operational benefit is fewer avoidable desk transfers, repeated calls and missed follow-ups. These are outcomes to measure in a pilot, not results we have already achieved.
 
-**Security slide wording:** Our design combines authenticated encryption of stored data with separate keys and server-enforced patient and staff access. It limits the data collected and keeps medical records out of the demo. HTTPS, managed key storage, identity verification and an independent security review are required before a real deployment. Encryption does not make this end-to-end encrypted or establish regulatory compliance.
+**Security slide wording:** The prototype encrypts stored data with AES-256-GCM and enforces patient and staff access on the server, with keys kept separately from the database. It limits the data collected and keeps medical records out of the demo. HTTPS, managed key storage, identity verification and an independent security review are required before a real deployment. Encryption does not make this end-to-end encrypted or establish regulatory compliance.
 
 ## Links and supporting files
 
@@ -75,7 +75,7 @@ Optional supporting link:
 
 https://github.com/Bhavya-Dhoot/Vishwas
 
-Describe the repository as a local synthetic-data prototype with its source code, screenshots and submission documents. Leave LinkedIn, video and prototype URL fields blank unless an actual public link is available. Do not present the repository as a playable video, deployed app or pilot.
+Describe the repository as a local synthetic-data prototype with its source code, screenshots and submission documents. Use the [60-second demo video](https://raw.githubusercontent.com/Bhavya-Dhoot/Vishwas/main/brag-output/brag.mp4) as a separate supporting link. Leave LinkedIn and a deployed-prototype URL blank because neither has been supplied. The video shows the actual local interface with fictional records, captions and music. The repository is source code, not a deployed app or hospital pilot.
 
 ## ABHA context
 

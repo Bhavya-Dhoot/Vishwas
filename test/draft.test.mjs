@@ -5,6 +5,9 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { createWorkflow } from '../src/workflow.mjs';
+import { seal, unseal } from '../src/security.mjs';
+
+const key = Buffer.alloc(32, 7);
 
 function draft(workflow, barrier = 'travel') {
   workflow.act('patient_reply', { episodeId: 'episode_booked', barrier });
@@ -18,7 +21,7 @@ function deferred() {
 }
 
 test('enhancement uses the draft barrier even after a later patient reply', async () => {
-  const workflow = createWorkflow(':memory:');
+  const workflow = createWorkflow(':memory:', { key });
   try {
     const travel = draft(workflow);
     draft(workflow, 'cost');
@@ -34,7 +37,7 @@ test('enhancement uses the draft barrier even after a later patient reply', asyn
 });
 
 test('enhancement rechecks consent and retains changes made while the generator waits', async () => {
-  const workflow = createWorkflow(':memory:');
+  const workflow = createWorkflow(':memory:', { key });
   try {
     const travel = draft(workflow);
     const waiting = deferred();
@@ -49,12 +52,12 @@ test('enhancement rechecks consent and retains changes made while the generator 
 });
 
 test('approved drafts and newer enhancements cannot be overwritten by a pending enhancement', async () => {
-  const workflow = createWorkflow(':memory:');
+  const workflow = createWorkflow(':memory:', { key });
   try {
     const travel = draft(workflow);
     const waiting = deferred();
     const pending = workflow.enhanceDraft(travel.id, async () => waiting.promise);
-    workflow.act('approve_message', { messageId: travel.id, approvedBy: 'Demo staff' });
+    workflow.act('approve_message', { messageId: travel.id });
     waiting.resolve({ text: 'Stale reply', source: 'clinic_template' });
     await assert.rejects(pending, error => error.status === 409);
     assert.equal(workflow.getState().messages.find(message => message.id === travel.id).status, 'simulated');
@@ -73,15 +76,15 @@ test('legacy drafts without a barrier fail safely', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'vishwash-draft-'));
   const path = join(directory, 'demo.sqlite');
   try {
-    const workflow = createWorkflow(path);
+    const workflow = createWorkflow(path, { key });
     const travel = draft(workflow);
     workflow.close();
     const db = new DatabaseSync(path);
-    const state = JSON.parse(db.prepare('SELECT json FROM app_state WHERE id = 1').get().json);
+    const state = unseal(db.prepare('SELECT json FROM app_state WHERE id = 1').get().json, key);
     delete state.messages.find(message => message.id === travel.id).barrier;
-    db.prepare('UPDATE app_state SET json = ? WHERE id = 1').run(JSON.stringify(state));
+    db.prepare('UPDATE app_state SET json = ? WHERE id = 1').run(seal(state, key));
     db.close();
-    const restored = createWorkflow(path);
+    const restored = createWorkflow(path, { key });
     try {
       await assert.rejects(restored.enhanceDraft(travel.id, async () => ({ text: 'Wrong', source: 'clinic_template' })), error => error.status === 409);
       assert.equal(restored.getState().messages.find(message => message.id === travel.id).text, travel.text);
