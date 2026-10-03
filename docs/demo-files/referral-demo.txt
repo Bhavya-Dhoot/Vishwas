@@ -1,0 +1,13 @@
+VISHWAS DEMONSTRATION FILE — FICTIONAL DATA ONLY
+
+Patient display name: Tara Demo
+Administrative referral department: Endocrinology
+Preferred language: Hindi
+Purpose: Demonstrate receiving an existing referral before the patient travels.
+
+This is not a medical record or a clinical recommendation. It contains no real
+patient information, findings, diagnosis, test results or treatment instructions.
+
+In the demo, select the department explicitly in the enquiry form. Vishwas does
+not read this document to infer a specialty. Upload it to demonstrate encrypted
+storage and, if selected, a salted commitment on the local Fabric network.

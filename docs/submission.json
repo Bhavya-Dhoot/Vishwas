@@ -1,6 +1,6 @@
 {
   "prepared_on": "2026-10-03",
-  "status": "Architecture revision: routing and encrypted document APIs implemented with automated tests; combined UI, sample hospital connector and local Hyperledger Fabric verification are being integrated. No live hospital deployment.",
+  "status": "Working local synthetic-data prototype: 30 automated tests, browser journey, sample hospital API and real local Hyperledger Fabric document verification passed. No live hospital deployment.",
   "form": {
     "applicant_name": "Bhavya Dhoot",
     "track": "Diabetes",
@@ -49,7 +49,7 @@
   "disclosure": {
     "prior_work_confirmed_by_applicant": true,
     "prior_work": "Concept and existing deck preceded submission preparation; local prototype made for this submission",
-    "prototype_status_requires_final_verification": true,
+    "prototype_status_requires_final_verification": false,
     "clinical_scope": "Administrative coordination only; no clinical inference or advice",
     "messaging_demo": "Simulated WhatsApp inbox; no actual messages sent",
     "abha_demo": "Simulated consent; no record retrieval",
@@ -57,10 +57,10 @@
     "measurements": "No measured patient outcomes",
     "deck_reviewed": false,
     "form_submitted": false,
-    "security": "AES-256-GCM encrypted workflow and document storage with server authorization. Fabric is being integrated as a permissioned verification layer for salted commitments only. Not end-to-end encryption or a compliance certification.",
+    "security": "AES-256-GCM encrypted workflow and documents with server authorization. Real local Fabric anchoring and integrity verification passed. Files and sensitive metadata remain off-chain. Not end-to-end encryption or compliance certification.",
     "routing": "Explicit referral department or exact directory label only; no medical interpretation. Department accepts once, followed by consented deterministic assignment and scheduling.",
-    "hospital_connector": "Configurable sample hospital API under integration; vendor mapping, credentials and operational validation required for a real hospital.",
-    "blockchain": "Local Hyperledger Fabric integration in progress; do not claim a verified live ledger until the verification record confirms it. No patient documents, names, identifiers or raw document hashes on-chain.",
-    "video": "The current published video shows the preceding manual-booking workflow. A revision will follow integration verification."
+    "hospital_connector": "Configurable sample API implemented and tested over HTTP, including remote booking acknowledgement. Real vendor mapping and hospital acceptance remain future work.",
+    "blockchain": "A real two-organization local Hyperledger Fabric 2.5.16 network committed and queried salted document commitments. No patient documents, names, IDs or raw file hashes are on-chain. This is a development network, not a hospital consortium.",
+    "video": "Updated 60-second film demonstrates the revised real local flow: one acceptance, sample hospital API acknowledgement, encrypted upload, actual local Fabric verification and confirmed return. Fictional data; no patient outcome claims."
   }
 }

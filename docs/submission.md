@@ -61,7 +61,7 @@ Paste one supporting link per line:
 
 https://github.com/Bhavya-Dhoot/Vishwas
 
-The repository contains the local prototype and submission materials. A public hosted app and LinkedIn URL have not been supplied. The [existing video](https://raw.githubusercontent.com/Bhavya-Dhoot/Vishwas/main/brag-output/brag.mp4) shows the previous manual-booking workflow; wait for its revision before using it to demonstrate the new automation. No form or deck has been submitted on your behalf.
+The repository contains the local prototype and submission materials. A public hosted app and LinkedIn URL have not been supplied. The [updated 60-second video](https://raw.githubusercontent.com/Bhavya-Dhoot/Vishwas/main/brag-output/brag.mp4) shows automatic routing, one acceptance, hospital-acknowledged scheduling, encrypted uploads and real local Fabric verification. No form or deck has been submitted on your behalf.
 
 ## Core idea for the PPT
 
@@ -83,4 +83,4 @@ Use **Ayushman Bharat Health Account (ABHA)** under **Ayushman Bharat Digital Mi
 
 ## Current build status
 
-The earlier local journey, encrypted storage and session controls have been verified. The revised deterministic router, one-acceptance scheduler and encrypted document API are implemented and have automated coverage. The combined interface, sample hospital connector and local Fabric network are being integrated and will be reported as verified only after their checks pass. WhatsApp delivery, ABHA and live AI remain simulated or unconfigured. No hospital pilot, waiting-time reduction or patient outcome has been measured.
+The revised interface, deterministic routing, one-acceptance scheduling, encrypted uploads and sample hospital connector are implemented. Thirty automated tests and the browser journey passed. A separate connected walkthrough verified a real local Fabric document transaction, hospital booking acknowledgement, reminders and confirmed return attendance. See the [verification record](verification.md) and [transaction evidence](connected-proof.json). WhatsApp delivery, ABHA and live AI remain simulated or unconfigured. No hospital pilot, waiting-time reduction or patient outcome has been measured.

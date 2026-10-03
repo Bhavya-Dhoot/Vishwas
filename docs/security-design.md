@@ -1,65 +1,40 @@
 # Vishwas — security design and demonstration boundary
 
-**Decision:** use authenticated encryption for stored data and check access on the server. A blockchain is not needed for the current single-clinic workflow. This document separates the design from the evidence in [verification.md](verification.md); only completed tests are evidence of implementation.
+**Decision:** encrypt uploaded files and workflow state, enforce access on the server, and offer a permissioned integrity receipt when the uploader consents. The ledger is optional: appointment coordination works without it. [Verification](verification.md) records which integrations have actually been exercised.
 
 ## The answer to give a judge
 
-“We minimise what we collect, encrypt the saved workflow with AES-256-GCM, and check patient and staff permissions on the server. The encryption key is separate from the database. A patient session can access its own journey; only a staff session can confirm a route or attendance. The demo uses fictional records. Before using real patient data, we need verified identities, HTTPS, managed keys, a retention policy and an independent security review.”
+“The patient’s file and its metadata are encrypted in local SQLite with AES-256-GCM. The key is stored separately. Patient sessions can access only their own files, and staff access is checked on the server. With explicit consent, we can put a salted commitment on Hyperledger Fabric and later compare it with the saved file. No name, document, ABHA number, filename or raw file hash goes on-chain. The demo uses fictional data; real deployment still needs verified identities, HTTPS, managed keys, retention rules and a security review.”
 
-## Why this cryptography
+## Stored data and access
 
-| Need | Choice | What it provides | What it does not provide |
-| --- | --- | --- | --- |
-| Protect saved journey data | AES-256-GCM through Node's built-in crypto library | Encryption plus detection of modified ciphertext; a fresh random 12-byte nonce and 16-byte authentication tag per save | Protection from an attacker who has both the database and its key, or controls the running server |
-| Protect the encryption key | Separate local user key file for the synthetic demo; separately supplied secret for protected local evaluation | Keeps a copied database from carrying its decryption key | A managed vault, hardware protection or automatic key rotation |
-| Check a staff password | Salted scrypt verifier and constant-time comparison | Password checking without a plaintext password inside the patient database | Verified employment, multi-factor authentication or individual staff accounts |
-| Restrict a patient journey | Random server session, HttpOnly cookie, per-request ownership checks | A patient identifier alone does not grant access | Real-world identity proof or a recovery process across devices |
-| Protect browser-to-server traffic | HTTPS/TLS before deployment | Transport confidentiality and authentication when properly configured | At-rest protection; the current local loopback demo runs over HTTP |
+The application accepts PDF, UTF-8 text and JSON files up to 2 MiB each, at most five per patient. It checks file structure and type but does **not** interpret clinical content or establish that a report is genuine. The full document record—patient association, sanitized filename, type, byte count, timestamp, random salt, commitment and bytes—is encrypted before SQLite stores it. Workflow state is also encrypted. The server decrypts data to operate, so this is **encryption at rest, not end-to-end encryption**. A compromised server or host account can access working data.
 
-OWASP recommends established authenticated encryption modes such as GCM, key separation and minimising stored information. This is why we use the platform crypto implementation rather than inventing an algorithm. See [OWASP Cryptographic Storage](https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html). Node exposes the required authenticated-encryption primitives in its [crypto API](https://nodejs.org/docs/latest-v22.x/api/crypto.html).
-
-For passwords, scrypt is available in Node without an additional dependency. Its work factor must be deliberately configured; password hashing serves a different purpose from encrypting records. See [OWASP Password Storage](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html).
-
-## Would blockchain be better?
-
-For this version, no. The practical threat is someone obtaining a database copy or accessing another person's journey. Encryption and access checks directly address those cases. A shared ledger addresses agreement about a transaction history among participants, which is a different requirement. NIST describes the distributed, tamper-evident ledger model in its [Blockchain Technology Overview](https://csrc.nist.gov/pubs/ir/8202/final).
-
-| Option | Fit for Vishwas now | Decision |
+| Need | Choice | Limit |
 | --- | --- | --- |
-| AES-GCM storage plus server access checks | Directly protects stored content and limits application access | Implement and test |
-| Managed cloud key service | Separates operational key control and supports stronger key lifecycle management | Use when a deployment and hosting provider are agreed |
-| Public blockchain containing patient data | Replicates sensitive information beyond the clinic and makes later removal difficult | Do not use |
-| Permissioned ledger across independent hospitals | Could support a jointly governed audit trail if that becomes an actual requirement | Reconsider only with named participants, governance and a specific audit need |
+| Protect stored data | AES-256-GCM through Node's crypto API, with a fresh 12-byte nonce and authentication tag on every save | A stolen database remains vulnerable if the separate key is also stolen; an older valid snapshot can be replayed |
+| Keep keys apart | Local user key file for the synthetic demo; supplied key for protected local mode | No managed vault, key rotation or tested recovery yet |
+| Restrict access | Server sessions, HttpOnly cookies, anti-forgery checks, patient ownership and staff role checks | Demo entry is deliberately open for fictional identities; protected mode has one shared staff account |
+| Protect traffic | HTTPS/TLS required for public deployment | The local loopback demo uses HTTP |
 
-That assessment is our architectural judgment, not a claim that every blockchain is insecure. A future ledger should contain no patient records or identifiers; even hashes and references require a privacy review because they may be linkable. It would still need encryption, authorization and key management. The current audit history is an application log, not an independently witnessed, immutable ledger.
+These choices follow [OWASP's cryptographic storage](https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html), [session management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) and [key management](https://cheatsheetseries.owasp.org/cheatsheets/Key_Management_Cheat_Sheet.html) guidance. Protected local mode also checks a salted scrypt staff-password verifier and limits failed logins. That does not verify employment or provide individual staff accounts.
 
-## Data flow and limits
+## Why and how Fabric is used
 
-The browser sends a request to the local server. The server checks the session, request origin, anti-forgery token, role and record ownership before applying the action. The workflow is serialised, encrypted and written to SQLite. The server decrypts it when opening the database, and holds working data in memory. Consequently, this is **encryption at rest, not end-to-end encryption**.
+Fabric is a proposed shared integrity registry for participating institutions. The application computes `SHA-256(random 32-byte salt || SHA-256(file bytes))`. The salt and file remain encrypted off-chain. Only the resulting 64-character commitment is submitted through a bearer-authenticated bridge to the permissioned ledger. The local two-organization test network is a development setup; it does not establish real hospital identities or consortium governance. See the [Fabric test-network guide](https://hyperledger-fabric.readthedocs.io/en/release-2.5/test_network.html) and [Fabric private-data architecture](https://hyperledger-fabric.readthedocs.io/en/latest/private-data-arch.html).
 
-Only fictional names, languages, consent choices, referral-department requests, booking details, attendance and simulated messages belong in this demo. It has no medical-record upload, ABHA-number collection or real contact-number delivery. Optional AI drafting receives an allowlisted barrier category, language and template; raw records and patient free text are not model inputs.
+An upload succeeds even if anchoring fails: the encrypted file is saved with `anchor_pending` or `anchor_failed`, and an authorized user can retry. Verification recomputes the commitment and checks the ledger. A **verified** result requires both a matching local computation and a successful ledger lookup. A match only shows integrity relative to what was committed; it does not prove the issuer's identity, medical accuracy, correct patient association or clinical suitability. If the ledger is unavailable, verification says so rather than showing a badge.
 
-Session cookies and ownership checks complement encryption. OWASP explains why [session controls](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) and [TLS](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) are separate requirements. The HTTP loopback cookie configuration must not be copied unchanged into a public deployment.
+Deleting a file removes the encrypted off-chain record. A commitment already written to Fabric remains, as the upload consent must explain. Without the salt and file, it should not reveal the document, but metadata and linkability still need review by the participating institutions. The ledger cannot replace encryption, authorization, backups or consent. A single hospital can operate the workflow with ledger anchoring disabled. A shared ledger is justified only if separate organizations agree on its governance and need a jointly witnessed record; [NIST's blockchain overview](https://csrc.nist.gov/pubs/ir/8202/final) describes that model.
 
-## What to test and show
+The Fabric adapter, chaincode, bridge and setup are in [the local Fabric guide](../integrations/fabric/README.md). The actual local ledger and a connected document-upload verification passed; [verification.md](verification.md) records the transactions and [connected-proof.json](connected-proof.json) records the workflow checks. This establishes a working development integration, not production governance or independent security certification.
 
-1. Save a fictional name and read the raw database: the saved payload is a ciphertext envelope, not the name.
-2. Restart with the right key: the same journey returns.
-3. Change the ciphertext or use the wrong key: opening the saved state fails; it does not silently reset or fall back to plaintext.
-4. Call the state API without a session: it rejects access.
-5. Use one patient's session to request another patient's action: it rejects the action.
-6. Attempt a staff-only action from a patient session, or omit the anti-forgery token: it rejects the action.
-7. Withdraw outreach permission: new simulated delivery is blocked, including after an AI draft was started.
-8. Complete a return journey: only check-in plus staff-attested attendance closes it.
+## Connector and failure boundaries
 
-Test outcomes belong in the verification record, not inferred from this list. An automated check is not a penetration test or a compliance certificate.
+The sample hospital service accepts opaque booking keys and slot IDs, not names or document contents. Vishwas imports its directory, reserves remotely before committing a local booking, and attempts cancellation if the local commit fails. Reservation calls use an idempotency key; retrying after an uncertain network result can reconcile the same request. A process crash between remote acknowledgement and local commit still needs a durable recovery queue and scheduled reconciliation. With a connector configured, demo reset and manual booking or rescheduling are blocked because they could orphan remote reservations. Existing local bookings must be reconciled before connecting a real hospital directory. See the [sample connector contract](../integrations/sample-hospital/README.md).
 
 ## Before real patient use
 
-Agree the data purpose and minimum fields with the hospital; define identity verification, individual staff access and revocation, consent, retention and deletion, backup and recovery, incident response and deployment ownership. Add HTTPS with Secure cookies, managed keys, tested key rotation and restore, operational monitoring and independent security review. A lost key needs a recovery plan; an exposed key needs a rotation and incident plan. See [OWASP Key Management](https://cheatsheetseries.owasp.org/cheatsheets/Key_Management_Cheat_Sheet.html).
+Agree the data purpose and minimum fields with a hospital. Add verified patient and individual staff identities, HTTPS with Secure cookies, managed keys and tested restore/rotation, documented consent and deletion, protected backups, incident response, monitoring, and an independent security review. Each hospital adapter needs vendor API access, identifier mapping, booking rules and acceptance testing. Fabric use additionally needs institutional membership, certificate and key operations, retention policy and an agreed answer to how remaining commitments are explained on deletion. The local demo and simulated ABHA/WhatsApp flows provide none of these approvals.
 
-A local key file shares the host's trust boundary. Operating-system permissions and full-disk encryption remain relevant; application encryption alone does not protect a fully compromised account or process. SQLite size and schema are not concealed. The current design also does not detect replay of an older valid database snapshot or prove that an authorized operator never altered an entry.
-
-ABHA consent remains simulated. A real connection needs applicable ABDM onboarding and scoped patient consent; the identifier itself is not a decryption key or blanket access permission. See the [ABDM sandbox](https://sandbox.abdm.gov.in/sandbox/v3) and the [Ministry of Health consent explainer](https://www.pib.gov.in/Pressreleaseshare.aspx?PRID=2017129&lang=2&reg=48).
-
-Do not claim “unhackable”, “blockchain-secured”, “end-to-end encrypted”, “ABDM-certified”, “HIPAA compliant” or “DPDP compliant” from this prototype.
+Do not claim “unhackable”, “end-to-end encrypted”, “ABDM-certified”, “HIPAA compliant”, “DPDP compliant” or that a matching commitment proves a record authentic.

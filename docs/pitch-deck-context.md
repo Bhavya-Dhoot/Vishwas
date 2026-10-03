@@ -38,7 +38,7 @@ A patient should not need to reach the hospital before anyone starts arranging t
 
 ## Implementation labels
 
-The routing and encrypted document APIs have automated coverage. The interface, sample connector and local Fabric network are being integrated; use docs/verification.md for final evidence before calling the combined flow verified. WhatsApp delivery and ABHA remain simulated. Optional AI drafts administrative replies only; live provider calls remain unverified. There is no live hospital pilot or measured waiting-time improvement.
+The combined interface, routing, encrypted documents and sample connector are implemented and tested. A real local Fabric transaction and a connected journey through confirmed return passed. See docs/verification.md and docs/connected-proof.json for evidence. WhatsApp delivery and ABHA remain simulated. Optional AI drafts administrative replies only; live provider calls remain unverified. There is no live hospital pilot or measured waiting-time improvement.
 
 ## Claims to remove
 

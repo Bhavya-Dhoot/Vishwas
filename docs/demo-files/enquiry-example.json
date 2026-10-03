@@ -1,0 +1,9 @@
+{
+  "name": "Tara Demo",
+  "language": "Hindi",
+  "departmentId": "endocrinology",
+  "referralNote": "Fictional example: the existing referral explicitly names Endocrinology.",
+  "contactConsent": true,
+  "caregiverConsent": false,
+  "scheduleConsent": true
+}

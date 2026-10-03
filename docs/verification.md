@@ -1,47 +1,70 @@
 # Prototype verification — 3 October 2026
 
-Verified locally on Windows with Node.js 22.17.1. All data was fictional; no third-party messages or live model calls were made.
+Verified locally on Windows with Node.js 22.17.1. All patients, clinicians and files are fictional. No WhatsApp messages, ABDM retrieval or live model calls were made.
 
-## Automated tests
+## Automated checks
 
-Run `npm test`. **13 tests passed; 0 failed.** They cover:
+`npm test`: **30 passed, 0 failed** after the routing, document and connector changes.
 
-- Intake, confirmed routing, matching bookings, document readiness, check-in, attested completion and separate follow-up creation.
-- Overdue reminders, deduplication, logistical drafts, approval, barrier resolution and a verified return.
-- Slot capacity, department constraints, unchanged original due dates and invalid transitions.
-- Patient/caregiver consent, medical questions without a draft and invalid JSON/actions.
-- SQLite persistence across a server restart.
-- Optional AI payload minimisation, provider failure and template fallback.
-- Drafts bound to their original barrier, consent/approval changes while an AI request is pending, and stale concurrent results.
-- AES-256-GCM persistence and a different nonce on the next save; the saved snapshot contains no test patient name in plaintext.
-- Correct-key recovery, wrong-key rejection, ciphertext tampering rejection and refusal to open legacy plaintext state.
-- Unauthenticated rejection, patient state scoping, cross-patient action denial, staff-only actions, server-derived actor identity and session revocation after logout/replacement.
-- Missing/wrong anti-forgery tokens, protected-mode configuration, password checking and login throttling, and rejection of public demo entry/reset/date actions in protected mode.
+- Explicit department IDs and exact department labels route deterministically; referral-note contents do not infer a specialty.
+- One acceptance selects a compatible available doctor and slot. Repeated acceptance is idempotent.
+- Language, capacity, patient doctor/time preferences and automatic-scheduling consent are checked. Follow-ups retain scheduling constraints.
+- Missing consent and unavailable slots remain visible. A waitlisted request can be retried after capacity is imported.
+- Staff acceptance cannot silently replace a patient's preferred doctor. Legacy route confirmation cannot strand an accepted waitlisted request.
+- Directory imports validate references and preserve booked slots. Concurrent workflow instances cannot overbook local capacity.
+- Real HTTP tests against the sample hospital API cover authentication, directory sync, capacity races, duplicate requests, restart persistence, rollback and downtime. A failed remote reservation does not confirm a local booking.
+- Connected reset and manual rescheduling are rejected to avoid orphaning remote reservations. Local-only reset revokes patient sessions and clears uploaded files.
+- Document tests cover AES-256-GCM encryption of bytes, names, metadata, salts and commitments; authenticated restart; tamper rejection; ownership checks; limits; consent-gated anchoring; and offline retry behavior.
+- Session tests cover unauthenticated access, patient isolation, staff-only operations, CSRF, logout/replacement, protected-mode configuration, password verification and throttling.
+- The consultation and return journey retains the original due date and requires recorded check-in and attendance evidence. Messages and rebookings do not count as attendance.
+- Administrative AI tests use mocked responses and a working template fallback, limited inputs and rechecks of consent and draft state.
 
-The suite uses generated test keys and temporary databases. No real key, password, patient record or session cookie is part of its report.
+Test secrets and temporary databases are generated locally. No credential appears in this record.
 
 ## Browser walkthrough
 
-A headless Chromium session completed the visible interface sequence using separate patient and staff browser contexts: patient submits from home → staff confirms Endocrinology referral → books → patient refreshes and sees the plan before check-in → mark documents → check in → confirm initial visit → create a follow-up → advance demo day → run reminders → add a travel barrier → improve the draft with the template fallback → approve simulated delivery → resolve the task → rebook → check in → confirm the return.
+The updated `scripts/browser-smoke.cjs` passed in headless Chromium using separate patient and staff contexts:
 
-Assertions checked patient state isolation, absence of staff audit data in the patient response, no check-in/completion before arrival, the separate follow-up identifier, the unchanged original due date, and that a reply/booking never counted as attendance. There were no browser JavaScript errors. At 390px, the patient plan and staff overview had no horizontal overflow. Updated screenshots were visually inspected.
+Home enquiry → automatic department inquiry → one acceptance → doctor and slot assigned → patient plan before arrival → encrypted synthetic upload visible to authorized staff → checklist → check-in → attendance → clinician-set follow-up → reminder → practical barrier → reviewed reply → automatic follow-up booking → confirmed return.
 
-The repeatable walkthrough is [scripts/browser-smoke.cjs](../scripts/browser-smoke.cjs). It needs Playwright as a development tool and Chromium; the application itself has no runtime dependency installation. With Playwright available, run `node scripts/browser-smoke.cjs` from the repository root. Optional `PLAYWRIGHT_MODULE` and `BROWSER_EXECUTABLE` variables can point to an existing local installation. It creates an isolated in-memory app and regenerates the fictional screenshots; it does not modify the running demo database.
+There were **no browser JavaScript errors**. Patient scoping and the absence of check-in before arrival were asserted. Patient and staff layouts were checked at **390 pixels**, with no horizontal overflow. Current screenshots are under `docs/screenshots`.
 
-## Pre-arrival test with two browser clients
+This browser run used the local directory. Separate HTTP integration tests exercised the sample hospital connector. The running local app is connected to the standalone sample API and Fabric bridge; authenticated health checks and directory synchronization succeeded.
 
-A separate patient window opened /?view=patient and submitted a fictional request from home. A staff window reviewed it, confirmed the department and booked a specialist. The patient refreshed the journey and saw the specialist, date, room, clinic location and preparation checklist while checkedInAt and completedAt were both null. Patient-side document readiness appeared in the staff view. After staff later recorded attendance and a new return date, patient refresh selected the separate follow-up.
+## Real Fabric and connected journey
 
-The patient view hid staff booking/attendance controls, and the API separately enforced role and ownership. Knowing or changing a URL identifier did not grant access. This flow produced no browser JavaScript errors; the patient entry also passed the 390px horizontal-overflow check. It demonstrates coordination before arrival using two local clients, not a live public deployment.
+`npm run verify --prefix integrations/fabric` passed against the actual local two-organization Fabric 2.5.16 network. It submitted a salted synthetic commitment, queried committed state, confirmed duplicate anchoring returns the same receipt, and rejected an unauthenticated lookup. The initial transaction was `5051359033542d86fdae6dad4982a97fc6d8658c314dfc8bf9bfa4129c79f98b`.
 
-## Additional security review and running demo
+`node scripts/verify-connected.mjs` then passed with an isolated application, a real HTTP sample hospital service and that live local Fabric network. It exercised encrypted file upload, ledger verification, one-acceptance booking, acknowledgement persistence, duplicate acceptance, patient isolation, reminder/barrier handling, separate follow-up booking and confirmed return. Its transaction was `bf1c58484e34949b7f1e468314d3ed59f3670cb8ab5b761a3a11050aa082a355`. The [machine-readable evidence](connected-proof.json) contains the commitment and checks without credentials or patient identifiers.
 
-A separate internal implementation review exercised modified authentication tags, foreign Origin, JSON-only writes, invalid Host headers, altered cookies, query-ID scoping and cross-patient message/ABHA-consent actions. No actionable defect was found within the stated local synthetic-data threat model. This was an internal review, not an independent security certification or penetration test.
+The network launcher also ran again successfully without deleting the ledger. Existing unrelated Docker projects were preserved. Certificates, private keys, ledger volumes and bridge tokens are excluded from Git.
 
-Browser checks also covered protected staff sign-in with no demo controls, logout, and clearing the workspace after its session cookie was removed. This checks the expired-session response path; it does not imply an eight-hour wall-clock endurance test.
+## Local integration status
 
-The local listener was restarted with the new implementation. An unauthenticated `GET /api/state` returned **401**; `GET /api/session` returned an unauthenticated demo session description. The default database is now the encrypted demo database. The older plaintext fictional database was left untouched, not silently migrated.
+| Component | Verified status |
+| --- | --- |
+| Main app | Local demo at 127.0.0.1:3000; encrypted persistent state |
+| Sample hospital API | Local service at 127.0.0.1:4100; authenticated health and directory sync succeeded |
+| Booking connector | Actual HTTP integration tests passed; remote acknowledgement precedes local confirmation |
+| Fabric | Real local two-organization network, committed transaction and document integrity lookup verified |
+| WhatsApp and ABHA | Simulated; no live external exchange |
+| OpenAI drafting | Implemented and tested with mocked responses; live provider unconfigured |
+| Video | Updated 60-second film verified: one-acceptance scheduling, actual sample API and local Fabric proof; see brag-output/QA.md |
 
-## What this does not establish
+## Review and limitations
 
-The checks do not establish production readiness, real patient identity, individual staff identity, live WhatsApp delivery, live ABDM access, live OpenAI output quality, hospital-system compatibility, or measured time savings. Local HTTP, key operations, backup/recovery, retention/deletion and deployment assurance remain limitations. The existing deck was not provided for inspection, and no application form was submitted.
+A separate code review found a transition that could strand an accepted waitlisted request. The route-change guard and regression test now prevent it. Additional checks preserve the patient's doctor preference and follow-up scheduling constraints. UI fixes preserve disabled controls, avoid restoring file-input paths and clear sensitive workspace content after authorization failures.
+
+The connector uses a process-local write queue and compensating cancellation. It does not yet have a durable outbox for recovery after a crash between the hospital acknowledgement and local commit. Existing local bookings are not automatically migrated to the hospital API. Connected rescheduling and reset require reconciliation. Remote capacity can change after directory synchronization; conflicts remain explicit exceptions.
+
+The ledger integration is optional. Files remain encrypted off-chain; only consented salted commitments are submitted. A pending or failed anchor is never proof of a ledger transaction. A matching commitment establishes file integrity relative to the committed version, not medical truth or issuer identity.
+
+Demo entry deliberately permits access to fictional staff and seed patients. Protected local mode removes those shortcuts but does not provide real-world patient identity verification, individual staff accounts or account recovery. The app runs on loopback HTTP. HTTPS, managed key lifecycle, verified identities, retention operations, recovery procedures, vendor acceptance tests and independent review are required before a real deployment.
+
+No hospital time saving, patient outcome improvement, production throughput or regulatory certification is claimed.
+
+## Reproduce
+
+Run `npm test` with Node.js 22.13 or later. The core app needs no package installation. To run the browser check, provide a Playwright module and browser executable through `PLAYWRIGHT_MODULE` and `BROWSER_EXECUTABLE`, then run `node scripts/browser-smoke.cjs`.
+
+Follow `integrations/sample-hospital/README.md` for the sample API and `integrations/fabric/README.md` for the separate Fabric network and bridge. `scripts/start-connected-demo.ps1` reads their local token files without printing secrets and starts the connected demo after health checks. `-WithoutFabric` enables the sample hospital connection while leaving ledger anchoring unconfigured.

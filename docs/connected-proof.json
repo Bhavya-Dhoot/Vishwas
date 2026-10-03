@@ -1,0 +1,24 @@
+{
+  "passed": true,
+  "checkedAt": "2026-10-03T17:29:57.987Z",
+  "data": "fictional",
+  "hospital": "real HTTP sample contract",
+  "fabric": {
+    "network": "hyperledger-fabric",
+    "commitment": "35f4db2ae18b275ae49df1e8b9b7ad7634d54464e5d8a299422e3c858f38bd31",
+    "transactionId": "bf1c58484e34949b7f1e468314d3ed59f3670cb8ab5b761a3a11050aa082a355",
+    "verified": true
+  },
+  "checks": [
+    "encrypted upload",
+    "real ledger anchor and lookup",
+    "automatic routing",
+    "one acceptance",
+    "remote booking acknowledgement",
+    "idempotent retry",
+    "patient isolation",
+    "reminder and barrier",
+    "separate follow-up booking",
+    "confirmed return"
+  ]
+}

@@ -1,30 +1,25 @@
-# Vishwas — 60-second demo plan
+# Vishwas — 60-second launch demo
 
-**Angle:** A patient can learn the specialist, time, room, and preparation steps before travelling; the care team keeps the return visit visible afterward.
+**Angle:** A fictional patient sends a department enquiry from home. Staff accept once; Vishwas assigns a Hindi-speaking endocrinologist and slot using the connected local sample hospital API. The plan reaches the patient before travel, and the team tracks a follow-up to confirmed attendance.
 
-**Hook:** “Know where to go before you travel.” This appears over the real patient intake screen as the cursor starts the request.
+**Hook:** “Know where to go before you travel.”
 
-**Audience:** Clinic operations and care teams assessing a patient navigation prototype. The patient view shows the benefit directly.
+**Audience:** Clinic operations and care teams assessing the synthetic prototype.
 
-**Visual identity:** Vishwas’s existing deep teal, cream, mint, and warm orange, with its real browser UI. A camera and cursor move through screen captures. Large captions state only what the workflow demonstrates.
+**Look and sound:** The product's deep teal, cream and mint palette and fresh captures of its real browser interface. Camera and cursor actions keep each screen moving. Quiet pulse music, restrained UI effects, no narration.
 
-**Music:** Quiet, optimistic pulse with restrained click, tick, and completion cues. No narration.
-
-**Storyboard (60 s):**
-
-| Time | Screen action | Caption |
+| Time | Real UI beat | On-screen message |
 | --- | --- | --- |
-| 0–5 | Camera enters the patient intake; cursor approaches the request form. | Know where to go before you travel. |
-| 5–11 | Fictional request form shows the referral department and submission. | Send a request from home. |
-| 11–18 | Staff queue opens the request and confirms the referral route. | Staff confirm the referral route. |
-| 18–25 | Matching specialist and available slot are selected. | Find the matching specialist. |
-| 25–33 | Patient journey refreshes; camera visits time and clinic location. | The plan reaches the patient. |
-| 33–39 | Patient checklist updates. | Preparation stays visible. |
-| 39–46 | Staff confirm attendance and open a clinician-set follow-up. | The return visit stays open. |
-| 46–53 | Simulated reminder, travel barrier, and a draft awaiting staff approval. | A barrier becomes a staff task. |
-| 53–57 | Follow-up moves to verified return. | Close the loop on attendance. |
-| 57–60 | Brand card and repository URL; synthetic and simulated scope in footer. | Vishwas · care coordination |
+| 0–5 | Patient home view | Know where to go before you travel. |
+| 5–10 | Tara selects Endocrinology and Hindi, with scheduling consent | Name the department. Share your language. |
+| 10–16 | Department inbox shows the enquiry and one acceptance control | The right team sees the enquiry. |
+| 16–22 | Acceptance assigns doctor and slot; sample hospital acknowledges | Doctor and slot, assigned automatically. |
+| 22–29 | Patient appointment plan | A clear plan reaches Tara. |
+| 29–35 | Encrypted referral upload and optional Fabric commitment | Keep referral files ready. |
+| 35–41 | Initial attendance and clinician-set follow-up | The next visit stays visible. |
+| 41–47 | Simulated reminder and travel barrier | A travel barrier reaches the team. |
+| 47–53 | Staff accept follow-up; sample hospital acknowledges | One acceptance books the return. |
+| 53–57 | Check-in and completed return | Attendance closes the loop. |
+| 57–60 | Brand card | Vishwas · care coordination |
 
-**Source and scope:** GitHub: `Bhavya-Dhoot/Vishwas`. All shown patients are fictional. WhatsApp and ABHA are simulated. No measured impact claims. The captures use the updated session-based interface. The film focuses on the patient journey; the security design and tests are documented separately. No production security or end-to-end encryption claim appears.
-
-**Share caption:** Know where to go before you travel. Vishwas lets a fictional patient request a visit from home, gives staff a referral-confirmed route, and keeps the follow-up open until attendance is verified. Local prototype; WhatsApp and ABHA are simulated.
+**Scope:** The patient, file and hospital directory are fictional. The hospital API is local sample software; messaging is simulated. A real local two-organization Fabric dev network anchored and verified the opaque file commitment. The film makes no measured impact claim.

@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {randomBytes,createHash} from 'node:crypto';
+import {readFile} from 'node:fs/promises';
+const commitment = createHash('sha256').update(randomBytes(32)).update('synthetic-fabric-smoke-test').digest('hex');
+const base=process.env.FABRIC_GATEWAY_URL || 'http://127.0.0.1:3101';
+const token=process.env.FABRIC_GATEWAY_TOKEN || (base === 'http://127.0.0.1:3101' ? (await readFile(new URL('../../data/fabric/bridge-token.txt',import.meta.url),'utf8')).trim() : null);
+if (!token) throw new Error('A token is required for a non-default Fabric bridge');
+const headers={Authorization:`Bearer ${token}`,'Content-Type':'application/json'};
+const anchored=await fetch(`${base}/commitments`,{method:'POST',headers,body:JSON.stringify({commitment})});
+assert.equal(anchored.status,200);
+const record=await anchored.json();
+assert.equal(record.commitment,commitment);assert.equal(record.exists,true);assert.match(record.transactionId,/^[a-f0-9]{64}$/);
+const read=await fetch(`${base}/commitments/${commitment}`,{headers});assert.equal(read.status,200);assert.deepEqual(await read.json(),record);
+const duplicate=await fetch(`${base}/commitments`,{method:'POST',headers,body:JSON.stringify({commitment})});assert.equal(duplicate.status,200);assert.deepEqual(await duplicate.json(),record);
+const denied=await fetch(`${base}/commitments/${commitment}`);assert.equal(denied.status,401);
+console.log(JSON.stringify({verified:true,network:'hyperledger-fabric',...record},null,2));

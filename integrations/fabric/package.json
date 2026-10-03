@@ -1,0 +1,1 @@
+{"name":"vishwas-fabric-bridge","version":"1.0.0","private":true,"type":"module","scripts":{"start":"node bridge.mjs","test":"node --test chaincode.test.mjs","verify":"node verify.mjs"},"dependencies":{"@grpc/grpc-js":"^1.14.0","@hyperledger/fabric-gateway":"^1.8.0"}}
