@@ -78,6 +78,7 @@ Protected mode uses a salted scrypt verifier, login throttling and server sessio
 - [Implementation, ABHA scope and next steps](docs/build-plan.md)
 - [Eight-slide deck context and 60-second pitch](docs/pitch-deck-context.md)
 - [SWOT and jury Q&A](docs/swot-and-judge-qa.md)
+- [Proposed business model, pricing and pilot economics](docs/business-model.md)
 - [75-second live demo script](docs/demo-script.md)
 - [Security design and blockchain decision](docs/security-design.md)
 - [Verification record](docs/verification.md)

@@ -97,7 +97,7 @@ Use the answers in your own voice. The local demo contains fictional people, cli
 
 29. **How would you integrate with a hospital?** The tested local sample API imports departments, clinicians and slots, then acknowledges idempotent remote reservations using opaque IDs. A hospital pilot needs vendor API access, identifier mapping, booking and cancellation rules, security review and acceptance testing. No real hospital API has been supplied.
 
-30. **Who pays, and what is the business model?** A plausible customer is a hospital or clinic buying an operational service, perhaps priced by site or managed appointment volume. Pricing, procurement path and willingness to pay are unvalidated; first show a staff-workload and patient-flow benefit in a supervised pilot.
+30. **Who pays, and what is the business model?** The hospital administrator buys a site subscription; patients and caregivers use Vishwas free. Proposed pricing is ₹40,000 for a paid pilot, ₹20,000/site/month billed annually and a separately scoped ₹60,000 integration fee. Credit the pilot against the first annual term, which includes the pilot period. Messaging and vendor API charges are separate. These are unvalidated commercial proposals, with no paying customers yet. The [business model](business-model.md) explains scope, unit economics and how a pilot should test the hospital's return.
 
 31. **What metric proves this works?** Define a pilot cohort and compare referral-to-booking time, document readiness, registration-to-consultation time where timestamps exist, staff time and verified return attendance. Keep the original due date, and report reschedules, unreachable patients and consent withdrawals separately. No improvement has been measured yet.
 

@@ -62,5 +62,25 @@
     "hospital_connector": "Configurable sample API implemented and tested over HTTP, including remote booking acknowledgement. Real vendor mapping and hospital acceptance remain future work.",
     "blockchain": "A real two-organization local Hyperledger Fabric 2.5.16 network committed and queried salted document commitments. No patient documents, names, IDs or raw file hashes are on-chain. This is a development network, not a hospital consortium.",
     "video": "Updated 60-second film demonstrates the revised real local flow: one acceptance, sample hospital API acknowledgement, encrypted upload, actual local Fabric verification and confirmed return. Fictional data; no patient outcome claims."
+  },
+  "business_model": {
+    "status": "Proposed commercial model; no paying customers, commercial pilot or measured ROI",
+    "model": "B2B hospital site subscription; patient and caregiver access free",
+    "buyer": "Hospital administrator, owner or operations head",
+    "initial_segment": "One diabetes OPD in a mid-size hospital with a care desk and usable scheduling API",
+    "pricing_inr": {
+      "pilot_10_weeks": 40000,
+      "subscription_per_site_per_month": 20000,
+      "subscription_annual": 240000,
+      "scoped_integration_one_time": 60000
+    },
+    "scope": "One site, up to three departments and 3,000 new enquiries per month; agreed storage, retention and support terms",
+    "pilot_credit": "On conversion within 30 days of evaluation, credit the pilot fee against the first annual subscription; the annual term starts on the pilot start date and includes the pilot period",
+    "first_year_example": "40000 pilot + 200000 subscription balance + 60000 integration = 300000 INR, before approved usage and applicable taxes",
+    "variable_costs": "Messaging and vendor API charges separately approved at actual cost or billed directly to hospital",
+    "fabric": "Optional, custom-priced shared-network operation only where participating institutions need it",
+    "incentives": "No patient routing fee, referral commission, paid doctor ranking or patient data sale",
+    "validation": "Paid scoped pilot measures net staff effort, booking turnaround and clinician-planned return attendance before expansion",
+    "document": "docs/business-model.md"
   }
 }

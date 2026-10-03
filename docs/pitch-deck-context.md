@@ -17,9 +17,11 @@ The form requires 6–8 slides, PDF or PowerPoint, maximum 25 MB. The existing d
 | 3. From home to the department | A short enquiry captures the existing referral department, language, preferences and documents. Rules route known departments; unclear requests go to coordination. | Actual enquiry and department inbox |
 | 4. Accept once, arrange the visit | One department acceptance triggers doctor and slot matching with patient consent. A booking acknowledgement produces the arrival plan; unavailable slots remain exceptions. | Accept → doctor/time → patient plan |
 | 5. Keep the next visit visible | Clinician-set dates trigger consented reminders. Patients report practical barriers. Attendance, rather than a message or reschedule, closes the visit. | Initial and follow-up episodes; simulated message labelled |
-| 6. Connect around existing systems | Browser app and Node.js workflow, configurable directory/availability/booking connector, sample hospital API. Real vendors need mapping and validation. | Architecture from architecture-update.md |
-| 7. Patient data and verification | AES-256-GCM encrypted records off-chain, server access controls, optional salted commitment on Hyperledger Fabric. Integrity is distinct from medical authenticity. | Encrypted vault → commitment only → Fabric |
+| 6. Integration and patient data | Configurable directory/booking connector; encrypted records off-chain; server access controls; optional salted commitments on Fabric. The sample API and local ledger work. Real vendors need mapping and validation. | Architecture with hospital API, encrypted vault and commitment registry |
+| 7. How hospitals buy Vishwas | Hospital administrator pays; patients use it free. Proposed ₹40,000 pilot, ₹20,000/site/month subscription and separately scoped ₹60,000 integration. Credit the pilot against the first annual term, including the pilot period. Usage is separate. | Revenue model with subscription, integration and optional shared-ledger operation; label prices unvalidated |
 | 8. Pilot and evidence | Measure enquiry-to-booking time, staff actions per booking, wrong-desk transfers, preparation readiness and return attendance. Ask for a care-team workflow trial. | Working prototype evidence, GitHub and proposed measures |
+
+For slide 7, use [the business model](business-model.md). Its prices and financial examples are proposals to test with buyers. There are no paying customers or measured ROI. Integration and security now share slide 6 so the deck remains at eight slides.
 
 ## 60-second pitch
 

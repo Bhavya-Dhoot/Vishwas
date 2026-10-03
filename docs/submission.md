@@ -81,6 +81,14 @@ The permissioned ledger is a prototype for verification across participating ins
 
 Use **Ayushman Bharat Health Account (ABHA)** under **Ayushman Bharat Digital Mission (ABDM)**. The prototype has an optional simulated consent step; it does not verify an ABHA number or retrieve records. Future retrieval requires the applicable ABDM onboarding and consent flow. ABHA does not establish PM-JAY insurance eligibility. See the [Ministry of Health ABDM update](https://www.pib.gov.in/PressReleasePage.aspx?PRID=2003068).
 
+## Business model — supporting context
+
+This is additional deck and interview context; the form supplied does not have a separate business-model field.
+
+Hospitals pay for Vishwas through a site subscription; patients and caregivers use it free. We propose a ₹40,000 paid pilot in one diabetes OPD, followed by a ₹20,000 monthly site subscription billed annually, with a separately scoped ₹60,000 integration fee. The pilot fee is credited against the first annual subscription on conversion; that annual term includes the pilot period. Messaging and hospital-system API charges are separate. We will use the pilot to measure staff effort, booking turnaround and planned return attendance before expanding. Fabric is optional for institutions needing shared verification. We will not earn referral commissions, offer paid doctor rankings or sell patient data. These are proposed commercial terms; there are no paying customers or measured returns yet.
+
+See the [full business model](business-model.md) for scope, buyer, pricing assumptions, economics and the pilot plan.
+
 ## Current build status
 
 The revised interface, deterministic routing, one-acceptance scheduling, encrypted uploads and sample hospital connector are implemented. Thirty automated tests and the browser journey passed. A separate connected walkthrough verified a real local Fabric document transaction, hospital booking acknowledgement, reminders and confirmed return attendance. See the [verification record](verification.md) and [transaction evidence](connected-proof.json). WhatsApp delivery, ABHA and live AI remain simulated or unconfigured. No hospital pilot, waiting-time reduction or patient outcome has been measured.
