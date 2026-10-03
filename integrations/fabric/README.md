@@ -37,6 +37,8 @@ All endpoints require `Authorization: Bearer <FABRIC_GATEWAY_TOKEN>`.
 * `GET /commitments/<64 lowercase hex>` evaluates the ledger and returns that record or HTTP 404 `{exists:false}`.
 * `GET /health` queries the ledger and reports `{status:"ready",network:"hyperledger-fabric"}`; unavailability returns HTTP 503. It does not expose credentials or patient data.
 
+The bridge permits at most eight concurrent requests, validates JSON and token format, and checks for an existing commitment before submitting another transaction. Duplicate receipts normally use a ledger query; simultaneous writes may still need retry.
+
 On Fabric failure, the bridge returns 503 and the application must retain a pending/unavailable proof state. A local hash by itself is never a confirmed Fabric proof.
 
 Stop the bridge with Ctrl+C. Stop only this demo's containers while retaining ledgers:

@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "url": "https://vishwas-care-demo.vercel.app",
+  "checkedAt": "2026-10-03T18:34:07.948Z",
+  "data": "fictional",
+  "checks": [
+    "home enquiry",
+    "department routing",
+    "one-acceptance booking",
+    "recorded attendance",
+    "follow-up reminder",
+    "barrier and reviewed reply",
+    "confirmed return",
+    "visitor isolation",
+    "patient scoping",
+    "cross-origin rejection",
+    "uploads disabled",
+    "390px layout",
+    "public PDF"
+  ],
+  "browserErrors": []
+}

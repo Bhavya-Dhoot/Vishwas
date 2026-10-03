@@ -80,10 +80,11 @@ test('legacy drafts without a barrier fail safely', async () => {
     const travel = draft(workflow);
     workflow.close();
     const db = new DatabaseSync(path);
-    const state = unseal(db.prepare('SELECT json FROM app_state WHERE id = 1').get().json, key);
-    delete state.messages.find(message => message.id === travel.id).barrier;
-    db.prepare('UPDATE app_state SET json = ? WHERE id = 1').run(seal(state, key));
-    db.close();
+    try {
+      const state = unseal(db.prepare('SELECT json FROM app_state WHERE id = 1').get().json, key, 'app-state:1');
+      delete state.messages.find(message => message.id === travel.id).barrier;
+      db.prepare('UPDATE app_state SET json = ? WHERE id = 1').run(seal(state, key, 'app-state:1'));
+    } finally { db.close(); }
     const restored = createWorkflow(path, { key });
     try {
       await assert.rejects(restored.enhanceDraft(travel.id, async () => ({ text: 'Wrong', source: 'clinic_template' })), error => error.status === 409);

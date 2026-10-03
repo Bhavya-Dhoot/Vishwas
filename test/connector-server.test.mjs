@@ -8,14 +8,24 @@ test('connected acceptance waits for remote capacity and remains idempotent; res
   let reservations = 0;
   let available = false;
   let directory;
+  const remote = new Map();
   const hospitalConnector = {
     configured: true,
     health: async () => ({ configured: true, reachable: true, kind: 'sample-contract' }),
     directory: async () => directory,
     reserve: async ({ slotId, idempotencyKey }) => {
       reservations++;
+      if (remote.get(idempotencyKey)?.status === 'cancelled') throw new HospitalConnectorError(409, 'Cancelled key');
       if (!available) throw new HospitalConnectorError(409, 'No hospital capacity');
-      return { id: 'synthetic_reservation', slotId, idempotencyKey, status: 'confirmed' };
+      const result = { id: 'synthetic_reservation', slotId, idempotencyKey, status: 'confirmed' };
+      remote.set(idempotencyKey, result);
+      return result;
+    },
+    lookup: async key => remote.get(key) ?? null,
+    cancelByKey: async key => {
+      const existing = remote.get(key);
+      remote.set(key, { id: existing?.id ?? 'synthetic_cancelled', slotId: existing?.slotId ?? '', idempotencyKey: key, status: 'cancelled' });
+      return { id: remote.get(key).id, idempotencyKey: key, status: 'cancelled' };
     },
     cancel: async () => { throw new Error('Unexpected cancellation'); },
   };
@@ -50,7 +60,7 @@ test('connected acceptance waits for remote capacity and remains idempotent; res
     assert.equal((await post('/api/actions', { type: 'book', payload: {} }, headers)).status, 409);
     assert.equal((await post('/api/actions', { type: 'reset_demo', payload: {} }, headers)).status, 409);
     hospitalConnector.configured = false;
-    assert.equal((await post('/api/actions', { type: 'reset_demo', payload: {} }, headers)).status, 200);
-    assert.equal((await fetch(base + '/api/state', { headers: patientHeaders })).status, 401);
+    assert.equal((await post('/api/actions', { type: 'reset_demo', payload: {} }, headers)).status, 409);
+    assert.equal((await post('/api/actions', acceptance, headers)).status, 503);
   } finally { await app.close(); }
 });

@@ -14,6 +14,24 @@ const intake = (workflow, extra = {}) => workflow.act('create_patient', {
 }).result;
 const item = (workflow, id) => workflow.getState().episodes.find(e => e.id === id);
 
+test('scheduling consent can be withdrawn and regranted without cancelling a confirmed appointment', () => {
+  const workflow = createWorkflow(':memory:', { key });
+  try {
+    const created = intake(workflow, { departmentId: 'general_medicine', scheduleConsent: false });
+    assert.equal(workflow.act('accept_inquiry', { episodeId: created.episodeId }).result.status, 'awaiting_staff_scheduling');
+    workflow.act('set_scheduling_consent', { episodeId: created.episodeId, scheduleConsent: true }, 'Patient');
+    const booked = workflow.act('accept_inquiry', { episodeId: created.episodeId }).result;
+    assert.equal(booked.status, 'booked');
+    workflow.act('set_scheduling_consent', { episodeId: created.episodeId, scheduleConsent: false }, 'Patient');
+    assert.equal(item(workflow, created.episodeId).slotId, booked.slotId);
+    assert.equal(item(workflow, created.episodeId).scheduleConsent, false);
+    const waiting = intake(workflow, { departmentId: 'general_medicine', preferredTime: '23:00' });
+    workflow.act('accept_inquiry', { episodeId: waiting.episodeId });
+    workflow.act('set_scheduling_consent', { episodeId: waiting.episodeId, scheduleConsent: false }, 'Patient');
+    assert.equal(workflow.act('accept_inquiry', { episodeId: waiting.episodeId }).result.status, 'awaiting_staff_scheduling');
+  } finally { workflow.close(); }
+});
+
 test('only an explicit department ID or exact department label routes an inquiry', () => {
   const workflow = createWorkflow(':memory:', { key });
   try {

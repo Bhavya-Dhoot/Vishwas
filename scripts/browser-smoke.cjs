@@ -65,6 +65,17 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal(beforeArrival.episodes[0].completedAt, null);
     assert.equal(beforeArrival.audit, undefined);
     await patientPage.screenshot({ path: 'docs/screenshots/patient-plan.png', fullPage: true });
+    for (const consent of [false, true]) {
+      const consentForm = patientPage.locator('[data-form=set_scheduling_consent]');
+      await consentForm.locator('[name=scheduleConsent]').setChecked(consent);
+      const changed = patientPage.waitForResponse(response => response.url() === url + '/api/actions');
+      await consentForm.getByRole('button', { name: 'Save scheduling consent' }).click();
+      const response = await changed;
+      assert.equal(response.status(), 200);
+      const saved = (await response.json()).episodes.find(e => e.id === initialId);
+      assert.equal(saved.scheduleConsent, consent);
+      assert.equal(saved.status, 'booked');
+    }
     const upload = patientPage.locator('[data-form=upload_document]');
     await upload.locator('[name=file]').setInputFiles(resolve(__dirname, '../docs/demo-files/referral-demo.txt'));
     const uploaded = patientPage.waitForResponse(response => response.url() === url + '/api/documents');
@@ -119,6 +130,27 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await mkdir('test-results', { recursive: true });
     await page.screenshot({ path: 'test-results/mobile.png', fullPage: true });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Mobile overflow');
+    assert.deepEqual(errors, []);
+    const { makeStaffAccount } = await import(pathToFileURL(resolve(__dirname, '../src/staff-auth.mjs')).href);
+    const { randomBytes } = require('node:crypto');
+    const password = randomBytes(24).toString('base64url');
+    const account = await makeStaffAccount('qa.care', 'Synthetic care desk', password);
+    const protectedApp = createApp({ dbPath: ':memory:', mode: 'protected', key: randomBytes(32).toString('hex'), staffAccounts: [account] });
+    await protectedApp.ready;
+    await new Promise(resolve => protectedApp.server.listen(0, '127.0.0.1', resolve));
+    try {
+      const protectedPage = await browser.newPage();
+      protectedPage.on('pageerror', error => errors.push(error.message));
+      await protectedPage.goto(`http://127.0.0.1:${protectedApp.server.address().port}`);
+      const form = protectedPage.locator('[data-form=staff_login]');
+      await form.locator('[name=username]').fill('qa.care');
+      await form.locator('[name=password]').fill(password);
+      await form.getByRole('button', { name: /Sign in as staff/ }).click();
+      await protectedPage.getByRole('heading', { name: 'Good care, kept on track.' }).waitFor();
+      const authenticated = await (await protectedPage.request.get(`http://127.0.0.1:${protectedApp.server.address().port}/api/session`)).json();
+      assert.equal(authenticated.actor, 'Synthetic care desk (qa.care)');
+      await protectedPage.close();
+    } finally { await protectedApp.close(); }
     assert.deepEqual(errors, []);
     console.log(JSON.stringify({ passed: true, browserErrors: errors, route: 'home enquiry -> automatic department inbox -> one acceptance -> assigned doctor and slot -> encrypted upload -> checklist -> attendance -> follow-up -> reminder -> barrier -> approved reply -> automatic follow-up booking -> confirmed return', responsiveWidth: 390, patientId, followId }, null, 2));
   } finally {

@@ -1,3 +1,5 @@
+import { edgeOnly } from './edge-policy.mjs';
+
 const templates = {
   English: {
     travel: 'Thank you for letting us know. The care team can discuss the travel difficulty with you and help you find a suitable appointment. Please tell the team a convenient time to contact you.',
@@ -20,6 +22,7 @@ const templates = {
 };
 
 export function getAiMode() {
+  if (edgeOnly()) return 'templates';
   return process.env.OPENAI_API_KEY?.trim() && process.env.OPENAI_MODEL?.trim() ? 'configured' : 'templates';
 }
 
@@ -28,6 +31,7 @@ export async function generateAdministrativeDraft({ barrier, language }, options
     throw new Error('Choose an administrative barrier and a supported language. Medical questions require staff.');
   }
   const fallback = { text: templates[language][barrier], source: 'clinic_template' };
+  if (edgeOnly()) return fallback;
   const apiKey = options.apiKey ?? process.env.OPENAI_API_KEY;
   const model = options.model ?? process.env.OPENAI_MODEL;
   if (!apiKey?.trim() || !model?.trim()) return fallback;

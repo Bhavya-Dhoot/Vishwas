@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { seal, unseal } from './security.mjs';
 
@@ -181,18 +181,27 @@ function nextDay(day) {
   return d.toISOString().slice(0, 10);
 }
 function chooseSlot(state, inquiry, patient, preferredSpecialistId) {
+  const clinicians = new Map(state.specialists.map(s => [s.id, s]));
+  const slotsById = new Map(state.slots.map(s => [s.id, s]));
+  const occupancy = new Map();
+  const loads = new Map();
+  for (const episode of state.episodes) {
+    if (episode.slotId && ['booked', 'checked_in', 'completed'].includes(episode.status)) occupancy.set(episode.slotId, (occupancy.get(episode.slotId) ?? 0) + 1);
+    if (['booked', 'checked_in'].includes(episode.status)) {
+      const clinician = episode.assignedSpecialistId ?? slotsById.get(episode.slotId)?.specialistId;
+      if (clinician) loads.set(clinician, (loads.get(clinician) ?? 0) + 1);
+    }
+  }
   const candidates = state.slots.filter(slot => {
-    const specialist = state.specialists.find(s => s.id === slot.specialistId);
+    const specialist = clinicians.get(slot.specialistId);
     if (!specialist || specialist.departmentId !== inquiry.departmentId || !specialist.languages.includes(patient.language)) return false;
     if (preferredSpecialistId && specialist.id !== preferredSpecialistId) return false;
     if (slot.date < state.today || inquiry.preferredDate && slot.date < inquiry.preferredDate) return false;
     if (inquiry.preferredTime && slot.time !== inquiry.preferredTime) return false;
-    const occupied = state.episodes.filter(e => e.slotId === slot.id && ['booked', 'checked_in', 'completed'].includes(e.status)).length;
-    return occupied < slot.capacity;
+    return (occupancy.get(slot.id) ?? 0) < slot.capacity;
   });
-  const load = specialistId => state.episodes.filter(e => (e.assignedSpecialistId ?? state.slots.find(s => s.id === e.slotId)?.specialistId) === specialistId && ['booked', 'checked_in'].includes(e.status)).length;
   candidates.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)
-    || load(a.specialistId) - load(b.specialistId) || a.specialistId.localeCompare(b.specialistId) || a.id.localeCompare(b.id));
+    || (loads.get(a.specialistId) ?? 0) - (loads.get(b.specialistId) ?? 0) || a.specialistId.localeCompare(b.specialistId) || a.id.localeCompare(b.id));
   return candidates[0] ?? null;
 }
 function metrics(state) {
@@ -317,6 +326,20 @@ function apply(state, type, payload, actor, demoMode) {
       state.episodes.push(newEpisode);
       log(state, episodeId, type, actor, `Created ${newEpisode.status}: ${route.reason}`);
       result = { patientId, episodeId, status: newEpisode.status, departmentId: route.departmentId, routingBasis: route.basis, routingReason: route.reason, routingPolicyVersion: ROUTING_POLICY };
+      break;
+    }
+    case 'set_scheduling_consent': {
+      fields(payload, ['episodeId', 'scheduleConsent']);
+      const inquiry = getEpisode(state, nonempty(payload.episodeId, 'episodeId'));
+      if (inquiry.status === 'completed') conflict('Change scheduling consent on the current open follow-up');
+      inquiry.scheduleConsent = boolean(payload.scheduleConsent, 'scheduleConsent');
+      if (inquiry.inquiryAcceptedAt && !inquiry.slotId) {
+        inquiry.status = inquiry.scheduleConsent ? 'waitlisted' : 'awaiting_staff_scheduling';
+        inquiry.waitlistReason = inquiry.scheduleConsent ? 'scheduling_retry_required' : null;
+        inquiry.schedulingReason = inquiry.scheduleConsent ? 'Consent granted; accepted inquiry can retry matching' : 'Automatic scheduling consent withdrawn; staff coordination required';
+      }
+      log(state, inquiry.id, type, actor, inquiry.scheduleConsent ? 'Automatic scheduling permitted' : 'Automatic scheduling declined; an existing confirmed appointment is not cancelled');
+      result = { episodeId: inquiry.id, scheduleConsent: inquiry.scheduleConsent };
       break;
     }
     case 'accept_inquiry': {
@@ -547,19 +570,34 @@ function apply(state, type, payload, actor, demoMode) {
   return result;
 }
 
-export function createWorkflow(dbPath, { aiMode = 'templates', key, demoMode = true } = {}) {
+export function createWorkflow(dbPath, { aiMode = 'templates', key, demoMode = true, connected = false } = {}) {
   if (!Buffer.isBuffer(key) || key.length !== 32) throw new Error('A 32-byte state key is required');
+  const stateContext = 'app-state:1';
   const db = new DatabaseSync(dbPath);
   db.exec('CREATE TABLE IF NOT EXISTS app_state (id INTEGER PRIMARY KEY CHECK (id = 1), json TEXT NOT NULL)');
+  db.exec('CREATE TABLE IF NOT EXISTS booking_intents (id TEXT PRIMARY KEY, json TEXT NOT NULL)');
   const read = db.prepare('SELECT json FROM app_state WHERE id = 1');
   const write = db.prepare('INSERT INTO app_state (id, json) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json');
+  const readIntent = db.prepare('SELECT json FROM booking_intents WHERE id = ?');
+  const insertIntent = db.prepare('INSERT INTO booking_intents (id, json) VALUES (?, ?)');
+  const deleteIntent = db.prepare('DELETE FROM booking_intents WHERE id = ?');
+  const countIntents = db.prepare('SELECT COUNT(*) AS count FROM booking_intents');
+  const allIntents = db.prepare('SELECT id, json FROM booking_intents ORDER BY RANDOM() LIMIT ?');
+  const intentId = episodeId => createHmac('sha256', key).update(episodeId).digest('hex');
+  const bookingIntent = episodeId => {
+    const id = intentId(episodeId);
+    const row = readIntent.get(id);
+    return row ? unseal(row.json, key, `booking-intent:${id}`) : null;
+  };
   const proposals = new WeakSet();
   const revision = stored => createHash('sha256').update(stored).digest('hex');
   let state;
   try {
     const stored = read.get()?.json;
-    state = stored ? normalizeState(unseal(stored, key)) : (demoMode ? seedState() : emptyState());
-    if (!stored) write.run(seal(state, key));
+    const legacy = stored && JSON.parse(stored).v === 1;
+    state = stored ? normalizeState(unseal(stored, key, legacy ? undefined : stateContext)) : (demoMode ? seedState() : emptyState());
+    if (!state || !Array.isArray(state.patients) || !Array.isArray(state.episodes) || !Array.isArray(state.departments) || !Array.isArray(state.specialists) || !Array.isArray(state.slots) || !Array.isArray(state.messages) || !Array.isArray(state.audit)) throw new Error('Encrypted state payload is invalid');
+    if (!stored || legacy) write.run(seal(state, key, stateContext));
   } catch (error) { db.close(); throw error; }
   function draftFor(current, id) {
     const message = current.messages.find(m => m.id === id) ?? missing('Message not found');
@@ -570,26 +608,55 @@ export function createWorkflow(dbPath, { aiMode = 'templates', key, demoMode = t
     return { message, patient };
   }
   return {
+    pendingBookingCount: () => countIntents.get().count,
+    hasHospitalReservations: () => normalizeState(unseal(read.get().json, key, stateContext)).episodes.some(episode => episode.hospitalReservation),
+    pendingBookingIntents: (limit = 3) => allIntents.all(limit).map(row => {
+      const intent = unseal(row.json, key, `booking-intent:${row.id}`);
+      if (intentId(intent.episodeId) !== row.id) throw new Error('Booking intent does not match its encrypted row ID');
+      return intent;
+    }),
+    bookingIntent,
+    beginBookingIntent({ episodeId, slotId, idempotencyKey, payload, actor }) {
+      const existing = bookingIntent(episodeId);
+      if (existing) {
+        if (existing.slotId !== slotId || existing.idempotencyKey !== idempotencyKey) conflict('An earlier hospital reservation may exist for this inquiry; staff reconciliation is required before selecting another slot');
+        return existing;
+      }
+      const intent = { episodeId, slotId, idempotencyKey, payload: structuredClone(payload), actor, createdAt: now() };
+      const id = intentId(episodeId);
+      insertIntent.run(id, seal(intent, key, `booking-intent:${id}`));
+      return intent;
+    },
+    clearBookingIntent(episodeId) { deleteIntent.run(intentId(episodeId)); },
+    markBookingRecovery(proposal, actor, detail = 'Previously pending hospital reservation verified and local booking recovered') {
+      if (!proposals.has(proposal)) invalid('Unknown acceptance proposal');
+      log(proposal.next, proposal.result.episodeId, 'reconcile_booking', actor, detail);
+    },
     getState: () => {
-      state = normalizeState(unseal(read.get().json, key));
+      state = normalizeState(unseal(read.get().json, key, stateContext));
       return publicState(state, aiMode);
     },
     previewAcceptance(payload, actor = 'System') {
       const stored = read.get().json;
-      const next = normalizeState(unseal(stored, key));
+      const next = normalizeState(unseal(stored, key, stateContext));
       const priorStatus = next.episodes.find(e => e.id === payload?.episodeId)?.status;
       const result = apply(next, 'accept_inquiry', payload, actor, demoMode);
       const proposal = { revision: revision(stored), next, result, requiresReservation: result.status === 'booked' && priorStatus !== 'booked' };
       proposals.add(proposal);
       return proposal;
     },
-    commitAcceptance(proposal) {
+    commitAcceptance(proposal, reservation = null) {
       if (!proposals.has(proposal)) invalid('Unknown acceptance proposal');
       proposals.delete(proposal);
       db.exec('BEGIN IMMEDIATE');
       try {
         if (revision(read.get().json) !== proposal.revision) conflict('Workflow changed after acceptance preview');
-        write.run(seal(proposal.next, key));
+        if (connected && proposal.requiresReservation) {
+          const intent = bookingIntent(proposal.result.episodeId);
+          if (!intent || !reservation || intent.slotId !== proposal.result.slotId || reservation.slotId !== intent.slotId || reservation.idempotencyKey !== intent.idempotencyKey || reservation.status !== 'confirmed') conflict('Hospital reservation acknowledgment is required for this booking');
+        }
+        write.run(seal(proposal.next, key, stateContext));
+        if (connected && proposal.requiresReservation) deleteIntent.run(intentId(proposal.result.episodeId));
         db.exec('COMMIT');
         state = proposal.next;
         return { ...publicState(state, aiMode), result: proposal.result };
@@ -600,9 +667,9 @@ export function createWorkflow(dbPath, { aiMode = 'templates', key, demoMode = t
       // ponytail: Whole-state JSON rewrite is fine for this small local demo; normalize tables if record volume grows.
       db.exec('BEGIN IMMEDIATE');
       try {
-        const next = normalizeState(unseal(read.get().json, key));
+        const next = normalizeState(unseal(read.get().json, key, stateContext));
         const result = apply(next, type, payload, actor, demoMode);
-        write.run(seal(next, key));
+        write.run(seal(next, key, stateContext));
         db.exec('COMMIT');
         state = next;
         return { ...publicState(state, aiMode), result };
@@ -610,20 +677,20 @@ export function createWorkflow(dbPath, { aiMode = 'templates', key, demoMode = t
     },
     async enhanceDraft(messageId, generator, actor = 'System') {
       const id = nonempty(messageId, 'messageId');
-      const { message: original, patient } = draftFor(normalizeState(unseal(read.get().json, key)), id);
+      const { message: original, patient } = draftFor(normalizeState(unseal(read.get().json, key, stateContext)), id);
       const revision = original.draftRevision ?? 0;
       const generated = await generator({ barrier: original.barrier, language: patient.language });
       if (!generated || typeof generated.text !== 'string' || !generated.text.trim() || !['openai', 'clinic_template'].includes(generated.source)) throw new Error('Draft generator returned an invalid administrative response');
       db.exec('BEGIN IMMEDIATE');
       try {
-        const next = normalizeState(unseal(read.get().json, key));
+        const next = normalizeState(unseal(read.get().json, key, stateContext));
         const { message } = draftFor(next, id);
         if ((message.draftRevision ?? 0) !== revision) conflict('Draft changed while enhancement was pending');
         message.text = generated.text.trim();
         message.source = generated.source;
         message.draftRevision = revision + 1;
         log(next, message.episodeId, 'enhance_draft', actor, `Administrative draft generated by ${generated.source}`);
-        write.run(seal(next, key));
+        write.run(seal(next, key, stateContext));
         db.exec('COMMIT');
         state = next;
         return { ...publicState(state, aiMode), result: { messageId: id } };

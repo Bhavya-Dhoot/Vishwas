@@ -1,3 +1,5 @@
+import { enforceEdgeUrl } from './edge-policy.mjs';
+
 const identifier = /^[A-Za-z0-9_.:-]{1,200}$/;
 
 export class HospitalConnectorError extends Error {
@@ -38,6 +40,7 @@ export function createHospitalConnector({ baseUrl = process.env.HOSPITAL_API_URL
   let base;
   if (configured) {
     try { base = new URL(baseUrl); } catch { throw new Error('HOSPITAL_API_URL must be an absolute URL'); }
+    enforceEdgeUrl(baseUrl);
     const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(base.hostname);
     if (!(base.protocol === 'https:' || base.protocol === 'http:' && loopback) || base.username || base.password || base.search || base.hash) throw new Error('Hospital API must use HTTPS, or HTTP on loopback, without embedded credentials');
     if (typeof token !== 'string' || !/^[A-Za-z0-9._~-]{24,512}$/.test(token)) throw new Error('HOSPITAL_API_TOKEN must be a 24–512 character secret');
@@ -45,7 +48,7 @@ export function createHospitalConnector({ baseUrl = process.env.HOSPITAL_API_URL
   }
   if (!Number.isInteger(timeoutMs) || timeoutMs < 50 || timeoutMs > 30000) throw new Error('Hospital timeout must be between 50 and 30000 ms');
 
-  async function request(path, method = 'GET', body) {
+  async function request(path, method = 'GET', body, allowNotFound = false) {
     if (!configured) throw new HospitalConnectorError(503, 'Hospital connector is not configured');
     try {
       const response = await fetch(new URL(path.replace(/^\//, ''), base), {
@@ -55,8 +58,9 @@ export function createHospitalConnector({ baseUrl = process.env.HOSPITAL_API_URL
       });
       if (!response.ok) {
         await response.body?.cancel();
-        if (response.status === 409) throw new HospitalConnectorError(409, 'Hospital slot is unavailable or the reservation conflicts; no appointment was confirmed');
-        throw new HospitalConnectorError(502, 'Hospital API rejected the request; no appointment was confirmed');
+        if (allowNotFound && response.status === 404) return null;
+        if (response.status === 409) throw new HospitalConnectorError(409, 'Hospital slot is unavailable or the reservation key conflicts');
+        throw new HospitalConnectorError(502, 'Hospital API rejected the request; booking outcome requires reconciliation');
       }
       if (!response.headers.get('content-type')?.toLowerCase().startsWith('application/json')) { await response.body?.cancel(); bad('Hospital API did not return JSON'); }
       const reader = response.body.getReader();
@@ -88,6 +92,19 @@ export function createHospitalConnector({ baseUrl = process.env.HOSPITAL_API_URL
       } catch { return { configured: true, reachable: false, kind: 'sample-contract' }; }
     },
     async directory() { return validateDirectory(await request('/directory')); },
+    async lookup(idempotencyKey) {
+      if (!id(idempotencyKey)) throw new HospitalConnectorError(400, 'A valid booking key is required');
+      const result = await request(`/bookings/by-key/${encodeURIComponent(idempotencyKey)}`, 'GET', undefined, true);
+      if (result === null) return null;
+      if (!object(result) || !id(result.id) || !(id(result.slotId) || result.status === 'cancelled' && result.slotId === '') || result.idempotencyKey !== idempotencyKey || !['confirmed', 'cancelled'].includes(result.status)) bad('Hospital returned an invalid reservation status');
+      return { id: result.id, slotId: result.slotId, idempotencyKey: result.idempotencyKey, status: result.status };
+    },
+    async cancelByKey(idempotencyKey) {
+      if (!id(idempotencyKey)) throw new HospitalConnectorError(400, 'A valid booking key is required');
+      const result = await request(`/bookings/by-key/${encodeURIComponent(idempotencyKey)}`, 'DELETE');
+      if (!object(result) || !id(result.id) || result.idempotencyKey !== idempotencyKey || result.status !== 'cancelled') bad('Hospital did not acknowledge booking key cancellation');
+      return { id: result.id, idempotencyKey, status: 'cancelled' };
+    },
     async reserve({ idempotencyKey, slotId }) {
       if (!id(idempotencyKey) || !id(slotId)) throw new HospitalConnectorError(400, 'An opaque booking key and valid slot ID are required');
       const result = await request('/bookings', 'POST', { idempotencyKey, slotId });

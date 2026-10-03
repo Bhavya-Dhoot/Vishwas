@@ -28,6 +28,7 @@ if ($WithoutFabric) {
 
 $env:PORT = "$Port"
 $env:APP_MODE = 'demo'
+$env:EDGE_ONLY = 'true'
 $env:DB_PATH = Join-Path $root 'data/vishwas-connected-encrypted.sqlite'
 Write-Host "Connected fictional demo: http://127.0.0.1:$Port"
 Write-Host 'Use the staff connector panel to sync the directory before a new enquiry.'

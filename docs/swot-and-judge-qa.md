@@ -9,7 +9,7 @@ Use the answers in your own voice. The local demo contains fictional people, cli
 | | What a judge should hear |
 | --- | --- |
 | **Strengths** | A valid referral department reaches its inbox before arrival; an unclear request goes to coordination. One acceptance triggers consented, deterministic doctor and slot matching, with reasons and a waitlist for exceptions. The patient receives a plan and can upload encrypted supporting files. The sample hospital connector demonstrates directory import and acknowledged booking. Attendance and clinician-set return visits remain separately verified. |
-| **Weaknesses** | There is no hospital pilot, real vendor API, public identity check, live WhatsApp or ABDM connection. The sample connector needs durable crash recovery; Fabric governance and live-network evidence must be checked in [verification](verification.md). Protected local mode has one shared staff account. Upload checks do not establish that a report is genuine or sufficient. |
+| **Weaknesses** | There is no hospital pilot, real vendor API, public identity check, live WhatsApp or ABDM connection. The sample connector now has tested durable recovery; each real vendor must support the same semantics. Named local staff accounts are implemented, but institutional identity, MFA and patient verification are still needed. Fabric governance remains a deployment requirement. Upload checks do not establish that a report is genuine or sufficient. |
 | **Opportunities** | A clinic could measure whether automated department sorting and matching reduce staff actions and referral-to-booking time, wrong-desk transfers and repeated calls. A scoped pilot could connect an approved roster, booking and attendance source. These are hypotheses, not measured gains. |
 | **Threats** | Wrong referral details, stale slot data, remote booking uncertainty, shared phones, limited connectivity, consent withdrawal, message failure and staff overload could make a real workflow unreliable. Hospital procurement, consortium governance, integration and data-governance requirements could slow adoption. |
 
@@ -19,7 +19,7 @@ Use the answers in your own voice. The local demo contains fictional people, cli
 | --- | --- | --- |
 | Pre-arrival coordination works | The code routes exact referral departments to a department inquiry and unclear requests to coordination; [verification](verification.md) gives the current browser status. | “One staff acceptance triggers the consented appointment match in the local prototype.” |
 | Booking respects constraints | Automated tests cover department, language, preferences, capacity, waitlist and retry behavior. The sample service tests real local HTTP reservation and idempotency. | “The prototype enforces these rules against fictional slots and a local sample hospital API.” |
-| Documents and integrity | PDF/text/JSON upload, scoped access, encryption, retry/verify/delete and Fabric bridge behavior have automated checks. A live network claim needs [verification](verification.md). | “Files stay encrypted off-chain. A consented salted commitment can be checked on Fabric; a match does not prove who issued the file.” |
+| Documents and integrity | PDF/text/JSON upload, scoped access, encryption, retry/verify/delete have automated checks. A real local Fabric transaction and connected document verification are recorded in [verification](verification.md) and [connected proof](connected-proof.json). | “Files stay encrypted off-chain. A consented salted commitment was checked on our local Fabric network; a match does not prove who issued the file.” |
 | Return visits stay accountable | Tests and browser walkthrough confirm a distinct follow-up episode, unchanged original due date and staff-attested return attendance. | “A reminder or rebooking does not count as a completed visit.” |
 | Outreach is consent-aware | Tests cover patient/caregiver consent, draft approval and rechecking consent before simulated sending. The inbox is local. | “We simulate outreach and test consent checks; we do not send WhatsApp messages.” |
 | AI is bounded | Optional administrative draft adapter was tested with mocked provider responses; the default clinic template works without a key. Live model output was not evaluated. | “AI can help draft a logistical reply for staff review. It makes no clinical decision.” |
@@ -81,11 +81,11 @@ Use the answers in your own voice. The local demo contains fictional people, cli
 
 22. **Can a caregiver receive reminders automatically?** No. Caregiver permission is separate from patient outreach permission, and the recipient's current consent is checked before a simulated message is approved. In a pilot, the clinic must verify the caregiver relationship and contact channel.
 
-23. **What happens when someone withdraws consent?** The prototype can update patient and caregiver messaging flags; new reminders and draft approval check the current flags. Existing local history remains. A real deployment needs a documented withdrawal, retention and deletion process across every connected provider.
+23. **What happens when someone withdraws consent?** The prototype can update patient/caregiver messaging flags and automatic-scheduling permission; reminders, draft approval and pending-booking recovery check the current state. Withdrawing automatic scheduling does not cancel an already confirmed appointment. Existing local history remains. A real deployment needs a documented withdrawal, retention and deletion process across every connected provider.
 
 24. **Does knowing a patient link grant access?** No. The server checks a session bound to that patient, so changing a patient identifier cannot grant access to another journey. The public demo deliberately permits entry to three fictional seed identities. Protected local mode disables that shortcut, but does not yet verify a patient's real-world identity or provide account recovery.
 
-25. **Is the saved data encrypted, and who manages keys?** AES-256-GCM protects the workflow snapshot and every document's full metadata and bytes, with a fresh nonce per save. The demo key is held outside SQLite in the local user's application-data directory; protected mode requires a supplied key. This protects a database copy without its key, not a compromised server. Managed keys and rotation are deployment work. See [security design](security-design.md).
+25. **Is the saved data encrypted, and who manages keys?** AES-256-GCM protects the workflow snapshot, document metadata and bytes, and pending booking intents, with a fresh nonce and authenticated record context. The key is outside SQLite. A tested offline rekey tool creates a verified new-key copy while retaining the original. Managed key custody and operational restore remain deployment work. See [security design](security-design.md).
 
 26. **What does ABHA add today?** Only an optional simulated consent step. It does not fetch records, prove identity or determine insurance eligibility. Any real ABDM connection would require applicable onboarding and scoped patient consent; ABHA remains optional. See the [Ministry of Health ABDM update](https://www.pib.gov.in/PressReleasePage.aspx?PRID=2003068), [consent explainer](https://www.pib.gov.in/Pressreleaseshare.aspx?PRID=2017129&lang=2&reg=48) and [ABDM sandbox](https://sandbox.abdm.gov.in/sandbox/v3).
 
@@ -101,7 +101,7 @@ Use the answers in your own voice. The local demo contains fictional people, cli
 
 31. **What metric proves this works?** Define a pilot cohort and compare referral-to-booking time, document readiness, registration-to-consultation time where timestamps exist, staff time and verified return attendance. Keep the original due date, and report reschedules, unreachable patients and consent withdrawals separately. No improvement has been measured yet.
 
-32. **What is the biggest limitation today, and the next step?** It is a local synthetic-data prototype without real identity checks, messaging, vendor integration or a pilot. Remote reservation recovery is not yet durable across a process crash. The next step is a care-team walkthrough and a scoped supervised pilot if a hospital wants it.
+32. **What is the biggest limitation today, and the next step?** It is a local synthetic-data prototype without real identity checks, messaging, vendor integration or a pilot. The new encrypted booking journal recovers interrupted reservations against the sample API; real vendor acceptance is still required. The next step is a care-team walkthrough and a scoped supervised pilot if a hospital wants it.
 
 33. **Is this an existing product?** No. The idea and deck existed first, and we built this local prototype during submission preparation. There was no previously launched product or hospital deployment, so the declaration is **“No — we are building a new solution.”**
 
@@ -111,19 +111,19 @@ Use the answers in your own voice. The local demo contains fictional people, cli
 
 35. **Is this end-to-end encryption?** No. The server decrypts the journey and documents to perform authorized work. We describe it as authenticated encryption at rest. HTTPS is needed before public deployment; the demo runs on local loopback HTTP.
 
-36. **What happens if the key is lost or the stored data is changed?** A missing or wrong key stops access rather than creating a fresh empty record. Modified ciphertext fails authentication. Key recovery, encrypted backups and a tested restore are required before real use. Fabric can detect a mismatch against a previously committed file, but cannot recover the file or lost key.
+36. **What happens if the key is lost or the stored data is changed?** A missing or wrong key stops access rather than creating a fresh empty record. Modified or transplanted ciphertext fails authentication. Offline rekey of a retained source copy was tested, including documents and pending bookings; that is not a lost-key recovery service. Backups and an operational restore test are required before real use. Fabric cannot recover the file or key.
 
-37. **Can an administrator still see the data?** The running application can, and someone who controls that application or its key may be able to as well. We do not claim protection from a fully compromised server. A deployment needs restricted operating-system and service access, managed keys, individual staff permissions and independent review.
+37. **Can an administrator still see the data?** The running application can, and someone who controls that application or its key may be able to as well. We do not claim protection from a fully compromised server. Named local staff accounts improve attribution, but a deployment needs restricted system access, institutional identity and permissions, managed keys and independent review.
 
 38. **Is the audit trail immutable?** The application audit log is inside its encrypted state and is not independently immutable. An authorized operator with the key can alter it, and an older valid snapshot can be replayed. A Fabric commitment is an independent integrity receipt for a consented file, not an immutable log of every action.
 
 39. **Can the AI see patient records?** The optional adapter receives only an allowlisted logistical category, language and approved template. It does not receive names, records or the patient's free text. The live provider is unconfigured in this demo; tests use mocked responses. Staff approval is still required for a draft.
 
-40. **What proof of security do you have?** Automated checks cover encryption, tamper detection, scoped document access and failure states. The [verification record](verification.md) distinguishes those tests from any live Fabric transaction. These are implementation checks, not a penetration test, legal assessment or certification.
+40. **What proof of security do you have?** Forty-two application tests cover routing, encryption, context binding, scoped access, recovery and failure states. Browser smoke and a real local Fabric transaction with connected document lookup also passed; [verification](verification.md) records the evidence. These are implementation checks, not a penetration test, legal assessment or certification.
 
-41. **How do you prevent brute-force login?** Protected local mode uses a salted scrypt password verifier, constant-time comparison and a limit on failed login attempts. A public service would also need an identity provider, individual accounts, stronger abuse controls and a recovery process.
+41. **How do you prevent brute-force login?** Protected local mode uses a salted scrypt password verifier, constant-time comparison and a limit on failed login attempts. Named local accounts are supported. A public service still needs institutional identity, MFA, stronger abuse controls and account recovery.
 
-42. **Can we deploy it with real patient data tomorrow?** No. It is ready for a synthetic demonstration and care-team feedback. A real pilot needs hospital API access, reconciled existing bookings, durable recovery after remote acknowledgement, HTTPS, verified identities, managed keys, retention and deletion rules, clinical escalation ownership, Fabric governance if used, and independent review.
+42. **Can we deploy it with real patient data tomorrow?** No. It is ready for a synthetic demonstration and care-team feedback. A real pilot needs hospital API access, reconciled existing bookings, vendor validation of the implemented recovery, HTTPS, verified identities, managed key custody, retention/deletion rules, clinical escalation ownership, Fabric governance if used, and independent review.
 
 ## Additional questions judges may ask about the new flow
 
@@ -139,7 +139,15 @@ Use the answers in your own voice. The local demo contains fictional people, cli
 
 **Who runs the ledger?** The local network has two sample organizations and a service identity. A real network needs named hospital participants, membership rules, certificate and key operations, governance, monitoring and a dispute process. The demo does not supply those.
 
-**What if the connector times out or the process crashes?** An idempotency key lets a retry ask for the same reservation. Local commit failure triggers cancellation; failed cancellation requires staff reconciliation. A crash after remote acknowledgement but before local commit needs a durable queue and scheduled reconciliation, which this prototype does not yet have.
+**What if the connector times out or the process crashes?** An encrypted booking intent is saved before the remote request. Startup and bounded scheduler passes replay its stable key and save an acknowledged appointment atomically. Changed consent or a different selected slot triggers terminal cancellation by key, including protection from delayed requests. If reconciliation fails, the intent remains visible and no new slot is silently reserved. This is tested against the sample contract, not a real vendor.
+
+## Improvements and remaining responsibilities
+
+The [hardening record](security-hardening.md) maps each actionable weakness to its implementation and remaining boundary. Encrypted record-context binding, named staff attribution, durable recovery, scheduling-consent changes, local-only outbound controls, indexed slot matching and repository secret checks are implemented. A local code change cannot supply hospital approval, a real vendor API, provider credentials, issuer authenticity, institutional governance or measured outcomes. Those remain explicit pilot requirements.
+
+**Are you using edge computing?** Routing, matching, encryption, reminders and recovery run on one local server. `EDGE_ONLY=true` restricts adapters to loopback and disables cloud AI. A synthetic preview with 10,000 slots and 100 clinicians measured 58.21 ms median across ten runs on this machine; it did not test concurrency or hospital throughput. There is no patient-record browser cache or deployed hospital edge installation.
+
+**Is blockchain the security mechanism?** Encryption and authorization protect records. Fabric is an optional integrity receipt. The bridge checks for an existing receipt before another write, bounds concurrency and uses TLS to its peer.
 
 ## Closing line
 

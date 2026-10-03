@@ -13,4 +13,6 @@ assert.equal(record.commitment,commitment);assert.equal(record.exists,true);asse
 const read=await fetch(`${base}/commitments/${commitment}`,{headers});assert.equal(read.status,200);assert.deepEqual(await read.json(),record);
 const duplicate=await fetch(`${base}/commitments`,{method:'POST',headers,body:JSON.stringify({commitment})});assert.equal(duplicate.status,200);assert.deepEqual(await duplicate.json(),record);
 const denied=await fetch(`${base}/commitments/${commitment}`);assert.equal(denied.status,401);
+const nonJson=await fetch(`${base}/commitments`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'text/plain'},body:JSON.stringify({commitment})});assert.equal(nonJson.status,415);
+const extra=await fetch(`${base}/commitments`,{method:'POST',headers,body:JSON.stringify({commitment,patientName:'Synthetic extra field'})});assert.equal(extra.status,400);
 console.log(JSON.stringify({verified:true,network:'hyperledger-fabric',...record},null,2));

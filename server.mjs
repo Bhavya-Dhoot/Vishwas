@@ -10,6 +10,8 @@ import { generateAdministrativeDraft, getAiMode } from './src/ai.mjs';
 import { stateKey, passwordMatches } from './src/security.mjs';
 import { createDocuments } from './src/documents.mjs';
 import { createHospitalConnector, HospitalConnectorError } from './src/hospital-connector.mjs';
+import { staffDirectory } from './src/staff-auth.mjs';
+import { edgeOnly } from './src/edge-policy.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -57,9 +59,11 @@ async function serveFile(pathname, res, method) {
   res.end(method === 'HEAD' ? undefined : data);
 }
 
-export function createApp({ dbPath, enableScheduler = false, mode = process.env.APP_MODE || 'demo', key: suppliedKey = process.env.STATE_KEY, staffPassword = process.env.STAFF_PASSWORD, hospitalConnector = createHospitalConnector() } = {}) {
+export function createApp({ dbPath, enableScheduler = false, mode = process.env.APP_MODE || 'demo', key: suppliedKey = process.env.STATE_KEY, staffPassword = process.env.STAFF_PASSWORD, staffAccounts, staffAccountsFile = process.env.STAFF_ACCOUNTS_FILE, hospitalConnector = createHospitalConnector(), publicDemo = false } = {}) {
   if (!['demo', 'protected'].includes(mode)) throw new Error('APP_MODE must be demo or protected');
-  if (mode === 'protected' && (!staffPassword || staffPassword.length < 12)) throw new Error('Protected mode requires STAFF_PASSWORD of at least 12 characters');
+  if (mode === 'protected' && !staffAccounts && !staffAccountsFile && (!staffPassword || staffPassword.length < 12)) throw new Error('Protected mode requires named staff accounts or STAFF_PASSWORD of at least 12 characters');
+  const localOnly = edgeOnly();
+  let namedStaff = staffAccounts ? staffDirectory(staffAccounts) : null;
   const demoMode = mode === 'demo';
   // The demo creates its own local data directory; no patient data belongs in Git.
   const selectedDb = dbPath || process.env.DB_PATH || join(root, 'data', demoMode ? 'vishwas-demo-encrypted.sqlite' : 'vishwas-protected-encrypted.sqlite');
@@ -68,11 +72,14 @@ export function createApp({ dbPath, enableScheduler = false, mode = process.env.
   const keyFile = dbFile === ':memory:' ? null : join(keyDir, `${createHash('sha256').update(dbFile).digest('hex')}.key`);
   const sessions = new Map();
   const attempts = new Map();
-  const verifier = staffPassword ? [randomBytes(16), null] : null;
+  const verifier = staffPassword && !staffAccounts && !staffAccountsFile ? [randomBytes(16), null] : null;
   if (verifier) verifier[1] = scryptSync(staffPassword, verifier[0], 32, { N: 2 ** 17, r: 8, p: 1, maxmem: 256 * 1024 * 1024 });
   let workflow;
   let documents;
   let timer;
+  let initialRecovery;
+  let recovering = false;
+  let lastReconciliation = null;
   // ponytail: one process-wide write queue; use a durable outbox before a multi-instance pilot.
   let writes = Promise.resolve();
   async function acquireWrite() {
@@ -83,23 +90,30 @@ export function createApp({ dbPath, enableScheduler = false, mode = process.env.
     return release;
   }
   const ready = (async () => {
+    if (staffAccountsFile && !staffAccounts) namedStaff = staffDirectory(JSON.parse(await readFile(staffAccountsFile, 'utf8')));
     if (dbFile !== ':memory:') await mkdir(dirname(dbFile), { recursive: true });
     if (keyFile) mkdirSync(keyDir, { recursive: true });
     const key = suppliedKey ? stateKey(suppliedKey, keyFile, !demoMode) : dbFile === ':memory:' && demoMode ? randomBytes(32) : stateKey(null, keyFile, !demoMode, !existsSync(dbFile));
-    workflow = createWorkflow(dbFile, { aiMode: getAiMode(), key, demoMode });
+    workflow = createWorkflow(dbFile, { aiMode: getAiMode(), key, demoMode, connected: hospitalConnector.configured });
     documents = createDocuments(dbFile, { key });
+    if (hospitalConnector.configured) initialRecovery = Promise.resolve().then(() => recoverPendingBookings()).catch(() => {
+      lastReconciliation = { attempted: 0, recovered: 0, failed: 1, pending: workflow.pendingBookingCount(), at: new Date().toISOString() };
+    });
     if (enableScheduler) {
       timer = setInterval(async () => {
         const release = await acquireWrite();
         try { workflow.act('run_reminders', {}); }
         catch (error) { console.error('Reminder scheduler failed:', error); }
         finally { release(); }
+        if (hospitalConnector.configured) await recoverPendingBookings().catch(() => {
+          lastReconciliation = { attempted: 0, recovered: 0, failed: 1, pending: workflow.pendingBookingCount(), at: new Date().toISOString() };
+        });
       }, 60_000);
       timer.unref();
     }
   })();
 
-  const sessionView = session => ({ mode, authenticated: !!session, role: session?.role ?? null, csrfToken: session?.csrf ?? null, actor: session?.actor ?? null, patientId: session?.patientId ?? null });
+  const sessionView = session => ({ mode, publicDemo, staffLogin: namedStaff ? 'named' : 'shared', edgeOnly: localOnly, authenticated: !!session, role: session?.role ?? null, csrfToken: session?.csrf ?? null, actor: session?.actor ?? null, patientId: session?.patientId ?? null });
   const tokenHash = token => createHash('sha256').update(token).digest('hex');
   function current(req) {
     const token = /(?:^|;\s*)vishwas_session=([^;]+)/.exec(req.headers.cookie ?? '')?.[1];
@@ -110,11 +124,11 @@ export function createApp({ dbPath, enableScheduler = false, mode = process.env.
     if (session.expires < Date.now()) { sessions.delete(id); return null; }
     return session;
   }
-  function issue(req, res, role, patientId = null) {
+  function issue(req, res, role, patientId = null, staffActor = null) {
     const oldToken = /(?:^|;\s*)vishwas_session=([^;]+)/.exec(req.headers.cookie ?? '')?.[1];
     if (oldToken) sessions.delete(tokenHash(oldToken));
     const token = randomBytes(32).toString('base64url');
-    const session = { role, patientId, actor: role === 'staff' ? (demoMode ? 'Demo staff' : 'Clinic staff') : 'Patient', csrf: randomBytes(32).toString('base64url'), expires: Date.now() + 8 * 60 * 60 * 1000 };
+    const session = { role, patientId, actor: role === 'staff' ? (staffActor ?? (demoMode ? 'Demo staff' : 'Clinic staff')) : 'Patient', csrf: randomBytes(32).toString('base64url'), expires: Date.now() + 8 * 60 * 60 * 1000 };
     sessions.set(tokenHash(token), session);
     res.setHeader('Set-Cookie', `vishwas_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800`);
     return session;
@@ -141,10 +155,70 @@ export function createApp({ dbPath, enableScheduler = false, mode = process.env.
       if (!demoMode && ['set_date', 'reset_demo'].includes(type)) throw new WorkflowError(403, 'Demo action unavailable');
       return;
     }
-    if (!['checklist', 'update_consent', 'abha_consent', 'patient_reply'].includes(type)) throw new WorkflowError(403, 'Staff role required');
+    if (!['checklist', 'update_consent', 'set_scheduling_consent', 'abha_consent', 'patient_reply'].includes(type)) throw new WorkflowError(403, 'Staff role required');
     const state = workflow.getState();
     const patientId = type === 'update_consent' || type === 'abha_consent' ? payload?.patientId : state.episodes.find(e => e.id === payload?.episodeId)?.patientId;
     if (patientId !== session.patientId) throw new WorkflowError(404, 'Record not found');
+  }
+  async function retireBookingIntent(intent) {
+    try {
+      await hospitalConnector.cancelByKey(intent.idempotencyKey);
+      const remote = await hospitalConnector.lookup(intent.idempotencyKey);
+      if (remote?.status !== 'cancelled') throw new Error('Hospital cancellation was not verified');
+      workflow.clearBookingIntent(intent.episodeId);
+    } catch {
+      throw new WorkflowError(503, 'A hospital booking may still exist; staff reconciliation is required before another slot can be reserved');
+    }
+  }
+  async function acceptConnected(payload, actor, recoveredBy = actor) {
+    const pending = typeof payload?.episodeId === 'string' ? workflow.bookingIntent(payload.episodeId) : null;
+    let proposal;
+    try { proposal = workflow.previewAcceptance(pending?.payload ?? payload, pending?.actor ?? actor); }
+    catch (error) {
+      if (pending) await retireBookingIntent(pending);
+      throw error;
+    }
+    if (pending && (!proposal.requiresReservation || proposal.result.slotId !== pending.slotId)) {
+      await retireBookingIntent(pending);
+      if (proposal.requiresReservation) throw new WorkflowError(409, 'The earlier hospital booking attempt was cancelled because the selected slot changed. Review and retry acceptance.');
+      workflow.markBookingRecovery(proposal, recoveredBy, 'Pending hospital booking cancelled after the inquiry no longer required that reservation');
+    }
+    let reservation;
+    if (proposal.requiresReservation) {
+      const intent = pending ?? workflow.beginBookingIntent({
+        episodeId: proposal.result.episodeId, slotId: proposal.result.slotId,
+        idempotencyKey: randomBytes(32).toString('hex'), payload, actor,
+      });
+      try { reservation = await hospitalConnector.reserve({ idempotencyKey: intent.idempotencyKey, slotId: intent.slotId }); }
+      catch (error) {
+        if (error instanceof HospitalConnectorError && error.status === 409) await retireBookingIntent(intent);
+        throw error;
+      }
+      const booked = proposal.next.episodes.find(episode => episode.id === proposal.result.episodeId);
+      booked.hospitalReservation = { ...reservation, confirmedAt: new Date().toISOString(), source: 'sample-contract' };
+      if (pending) workflow.markBookingRecovery(proposal, recoveredBy);
+    }
+    try { return workflow.commitAcceptance(proposal, reservation); }
+    catch (error) {
+      if (!reservation) throw error;
+      throw new WorkflowError(503, 'Hospital reservation may be confirmed but local booking is pending; retry acceptance to reconcile it');
+    }
+  }
+  async function recoverPendingBookings() {
+    if (recovering) return lastReconciliation;
+    recovering = true;
+    const release = await acquireWrite();
+    try {
+      const intents = workflow.pendingBookingIntents(3);
+      let recovered = 0;
+      let failed = 0;
+      for (const intent of intents) {
+        try { await acceptConnected(intent.payload, intent.actor, 'System reconciliation'); recovered++; }
+        catch { failed++; /* Keep unresolved intent for the next bounded retry or staff review. */ }
+      }
+      lastReconciliation = { attempted: intents.length, recovered, failed, pending: workflow.pendingBookingCount(), at: new Date().toISOString() };
+      return lastReconciliation;
+    } finally { release(); recovering = false; }
   }
 
   const server = createServer(async (req, res) => {
@@ -172,14 +246,15 @@ export function createApp({ dbPath, enableScheduler = false, mode = process.env.
           else throw new WorkflowError(400, 'Invalid demo role or patient');
         } else if (url.pathname === '/api/session/login') {
           if (demoMode) throw new WorkflowError(404, 'Not found');
-          exact(body, ['password']);
+          exact(body, namedStaff ? ['username', 'password'] : ['password']);
           const ip = req.socket.remoteAddress;
           const record = attempts.get(ip) ?? { count: 0, until: Date.now() + 15 * 60_000 };
           if (record.until < Date.now()) { record.count = 0; record.until = Date.now() + 15 * 60_000; }
           if (record.count >= 5) throw new WorkflowError(429, 'Too many login attempts');
-          if (!passwordMatches(body.password, verifier)) { record.count++; attempts.set(ip, record); throw new WorkflowError(401, 'Invalid credentials'); }
+          const identity = namedStaff ? await namedStaff.authenticate(body.username, body.password) : passwordMatches(body.password, verifier) ? { actor: 'Clinic staff' } : null;
+          if (!identity) { record.count++; attempts.set(ip, record); throw new WorkflowError(401, 'Invalid credentials'); }
           attempts.delete(ip);
-          send(res, 200, sessionView(issue(req, res, 'staff')));
+          send(res, 200, sessionView(issue(req, res, 'staff', null, identity.actor)));
         } else if (url.pathname === '/api/session/patient') {
           exact(body, ['name', 'language', 'contactConsent', 'caregiverConsent'], ['caregiverName', 'referralNote', 'departmentId', 'referralDepartmentLabel', 'preferredDate', 'preferredTime', 'scheduleConsent', 'preferredSpecialistId']);
           const result = workflow.act('create_patient', body, 'Patient').result;
@@ -221,25 +296,12 @@ export function createApp({ dbPath, enableScheduler = false, mode = process.env.
           if (!payload || typeof payload !== 'object' || Array.isArray(payload) || Object.keys(payload).length !== 1 || !Object.hasOwn(payload, 'messageId')) throw new WorkflowError(400, 'enhance_draft requires only messageId');
           response = await workflow.enhanceDraft(payload.messageId, generateAdministrativeDraft, session.actor);
         } else if (type === 'accept_inquiry' && hospitalConnector.configured) {
-          const proposal = workflow.previewAcceptance(payload, session.actor);
-          let reservation;
-          if (proposal.requiresReservation) {
-            const idempotencyKey = createHash('sha256').update(`${proposal.result.episodeId}:${proposal.result.slotId}`).digest('hex');
-            reservation = await hospitalConnector.reserve({ idempotencyKey, slotId: proposal.result.slotId });
-            const booked = proposal.next.episodes.find(episode => episode.id === proposal.result.episodeId);
-            booked.hospitalReservation = { ...reservation, confirmedAt: new Date().toISOString(), source: 'sample-contract' };
-          }
-          try { response = workflow.commitAcceptance(proposal); }
-          catch (error) {
-            if (reservation) {
-              try { await hospitalConnector.cancel(reservation.id); }
-              catch { throw new WorkflowError(503, 'Local booking was not committed; remote cancellation failed. Staff reconciliation is required before retrying.'); }
-            }
-            throw error;
-          }
+          response = await acceptConnected(payload, session.actor);
         } else {
-          if (hospitalConnector.configured && type === 'reset_demo') throw new WorkflowError(409, 'Disconnect and reconcile the sample hospital reservations before resetting local demo data.');
-          if (hospitalConnector.configured && ['book', 'reschedule'].includes(type)) throw new WorkflowError(409, 'Connected scheduling requires department acceptance; manual booking and rescheduling need hospital reconciliation.');
+          const hospitalHistory = workflow.pendingBookingCount() || workflow.hasHospitalReservations();
+          if (type === 'accept_inquiry' && hospitalHistory) throw new WorkflowError(503, 'Hospital booking history requires a connected hospital API before accepting another inquiry');
+          if ((hospitalConnector.configured || hospitalHistory) && type === 'reset_demo') throw new WorkflowError(409, 'Disconnect and reconcile the sample hospital reservations before resetting local demo data.');
+          if ((hospitalConnector.configured || hospitalHistory) && ['book', 'reschedule'].includes(type)) throw new WorkflowError(409, 'Connected scheduling requires department acceptance; manual booking and rescheduling need hospital reconciliation.');
           response = workflow.act(type, payload, session.actor);
           if (type === 'reset_demo') {
             documents.clear();
@@ -253,7 +315,7 @@ export function createApp({ dbPath, enableScheduler = false, mode = process.env.
         send(res, 200, { departments, specialists, slots });
       } else if (req.method === 'GET' && url.pathname === '/api/connector/status') {
         if (requireSession(req).role !== 'staff') throw new WorkflowError(403, 'Staff role required');
-        send(res, 200, await hospitalConnector.health());
+        send(res, 200, { ...await hospitalConnector.health(), pendingBookings: workflow.pendingBookingCount(), lastReconciliation });
       } else if (req.method === 'GET' && /^\/api\/documents\/[^/]+\/download$/.test(url.pathname)) {
         const doc = documents.get(url.pathname.split('/')[3], requireSession(req));
         res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename="document${doc.mimeType === 'application/pdf' ? '.pdf' : doc.mimeType === 'application/json' ? '.json' : '.txt'}"; filename*=UTF-8''${encodeURIComponent(doc.name).replace(/'/g, '%27')}`, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
@@ -278,10 +340,12 @@ export function createApp({ dbPath, enableScheduler = false, mode = process.env.
   return {
     server,
     ready,
+    async recoverBookings() { await ready; await initialRecovery; return recoverPendingBookings(); },
     async close() {
       await ready;
       if (timer) clearInterval(timer);
       if (server.listening) await new Promise((done, reject) => server.close(error => error ? reject(error) : done()));
+      await initialRecovery;
       await writes;
       workflow.close();
       documents.close();

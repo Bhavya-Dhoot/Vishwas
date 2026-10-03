@@ -29,6 +29,8 @@ Every request requires `Authorization: Bearer <token>`. The API is intended for 
 | GET | `/health` | `{ "status": "ok", "kind": "sample-hospital", "data": "fictional" }` |
 | GET | `/directory` | `{ "departments": [...], "specialists": [...], "slots": [...] }` |
 | POST | `/bookings` | `{ "idempotencyKey": "opaque-key", "slotId": "slot-id" }` → `{ "id": "reservation_UUID", "idempotencyKey": "opaque-key", "slotId": "slot-id", "status": "confirmed" }` |
+| GET | `/bookings/by-key/:key` | Reservation or cancellation tombstone, or 404 when unknown |
+| DELETE | `/bookings/by-key/:key` | Terminal cancellation; creates a tombstone even when no reservation is yet visible |
 | DELETE | `/bookings/:id` | `{ "id": "reservation_UUID", "status": "cancelled" }` |
 
 Directory fields:
@@ -43,8 +45,8 @@ Directory fields:
 
 Capacity is the total number of reservations allowed for a slot. The reservation endpoint is the final authority on availability; a previously fetched directory is not a lock. The current sample language set matches Vishwas's English/Hindi interface.
 
-Repeated booking requests with the same key and slot return the same reservation. A key cannot move to a different slot. Capacity checks and reservation writes share a SQLite transaction. Cancellation is idempotent; retrying a cancelled key reactivates the same reservation only if capacity is available. The sample API accepts no patient names, record contents, ABHA numbers, or other clinical fields.
+Repeated booking requests with the same key and slot return the same reservation. A key cannot move to a different slot. Capacity checks and reservation writes share a SQLite transaction. Cancellation is idempotent and terminal: a cancelled key cannot create or reactivate a reservation. This also blocks a delayed POST arriving after cancellation. The sample API accepts no patient names, record contents, ABHA numbers, or other clinical fields.
 
-Vishwas previews the exact assignment without persisting it, requests the hospital reservation, and commits the local appointment only after acknowledgment. If the local revision changed or saving fails, the server attempts cancellation. Network timeouts can leave an uncertain external reservation: retrying the same opaque key reconciles it. A failed rollback is an operational exception, not a confirmed local appointment. Production adapters also need scheduled reconciliation and monitoring of such exceptions.
+Vishwas previews the assignment, persists an encrypted booking intent and then requests the hospital reservation. It commits the local appointment and removes the intent together only after acknowledgement. On restart or a bounded scheduled pass, it replays the same key. If current consent or matching rules no longer permit that reservation, cancellation by key creates a terminal tombstone and is verified by lookup. An uncertain cancellation remains a pending exception. Real adapters must implement these guarantees; a GET lookup alone cannot prevent a delayed POST from recreating a cancelled request.
 
 Run the executable checks with `node --test test/connector.test.mjs`. They cover real HTTP directory import and booking, capacity collisions, duplicate calls, restart persistence, cancellation, local commit conflict, outage behavior, malformed responses, redirect refusal, and timeout handling.

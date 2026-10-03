@@ -2,6 +2,8 @@
 
 Prepared 3 October 2026 for Bhavya Dhoot. See the verification record for completed integration checks.
 
+**Two demonstration variants:** The [hosted public preview](https://vishwas-care-demo.vercel.app) shows the fictional enquiry and scheduling flow using visitor-isolated, in-memory SQLite. Vercel cold starts or request routing may reset a visitor's session. Uploads are disabled, and the preview has no hospital, Fabric, live WhatsApp, ABHA or cloud AI connection. The fuller local prototype retains encrypted uploads, the tested sample hospital API and a verified real local Fabric commitment. Neither is a production hospital deployment. See the [supporting PDF](https://vishwas-care-demo.vercel.app/Vishwas-Supporting-Document.pdf) and [research references](https://github.com/Bhavya-Dhoot/Vishwas/blob/main/docs/research-references.md).
+
 ## The patient journey
 
 ```mermaid
@@ -20,7 +22,7 @@ flowchart LR
     K --> I
 ```
 
-The enquiry starts the visit before arrival. A known referral department is routed automatically. Once the department accepts, matching and scheduling are automatic with the patient's consent. Unclear referrals, unavailable slots and booking failures remain visible exceptions. Without a connector, the demonstration uses its local directory.
+The enquiry starts the visit before arrival. A known referral department is routed automatically. Once the department accepts, matching and scheduling are automatic with the patient's consent. Unclear referrals, unavailable slots and booking failures remain visible exceptions. The hosted preview uses its isolated fictional directory; the local connected prototype can import the sample hospital directory.
 
 ## What changed
 
@@ -65,9 +67,13 @@ Fabric fits the proposed permissioned institutional registry. For a single hospi
 
 ## Existing hospital integration
 
-The first connector uses a documented sample REST API to import departments, doctors and slots, reserve a slot with an idempotency key and acknowledge the booking. The local appointment is confirmed only after the remote reservation succeeds. A failed local commit triggers cancellation, with an explicit reconciliation error if cancellation also fails. A process crash between systems remains a recovery concern in this prototype.
+In the **local connected prototype**, the first connector uses a documented sample REST API to import departments, doctors and slots, reserve a slot with an idempotency key and acknowledge the booking. The local appointment is confirmed only after the remote reservation succeeds. Before reserving, the app saves an encrypted booking intent. A restart or bounded scheduler pass reuses the same key to reconcile the remote reservation and commit locally. If current consent or slot selection no longer permits that reservation, terminal cancellation by key prevents a delayed request from recreating it. Uncertain results remain pending. The hosted preview does not connect to this service.
 
-The sample exchanges opaque booking IDs rather than patient documents. Real hospitals require vendor API access, identifier mapping, authentication, scheduling rules and acceptance testing. This is a configurable adapter boundary, not universal compatibility. Production also needs individual staff accounts, patient identity verification, HTTPS, managed keys and backups, retention rules, monitoring and recovery procedures.
+The sample exchanges opaque booking IDs rather than patient documents. Real hospitals require vendor API access, identifier mapping, authentication, scheduling rules and acceptance testing. This is a configurable adapter boundary, not universal compatibility. Named local staff accounts and audit attribution are implemented. Production still needs institutional identity controls, patient verification, HTTPS, managed keys/backups, retention rules, monitoring and vendor-validated recovery.
+
+## Local edge and cryptographic hardening
+
+The local Node/SQLite service performs routing, matching, encryption, reminders and recovery on one host. `EDGE_ONLY=true` forces templates and loopback-only hospital/Fabric endpoints. This does not cache patient records in the browser or demonstrate offline access from home. Authenticated record context prevents encrypted-row substitution; named staff sessions attribute actions. The Fabric bridge bounds concurrency and looks up an existing commitment before submitting a duplicate. The public preview has a separate disposable in-memory state and no uploads or connectors. See [hardening details](security-hardening.md) and [verification](verification.md).
 
 ## PPT changes to make
 
@@ -76,7 +82,7 @@ The sample exchanges opaque booking IDs rather than patient documents. Real hosp
 3. Show survey fields capturing an existing referral, not a new medical recommendation.
 4. Add directory/availability import and booking acknowledgement to the architecture.
 5. Draw medical files in the encrypted off-chain vault and only commitments entering Fabric.
-6. Distinguish verified local components from simulated WhatsApp/ABHA and future deployment. Check the final verification record before claiming a live ledger demonstration.
+6. Label the public preview and local connected prototype separately. The local Fabric network has a verified transaction; the public preview has no ledger connection. WhatsApp and ABHA remain simulated.
 7. Propose a pilot measuring enquiry-to-booking time, staff actions per booking, wrong-desk transfers and verified return attendance. No outcome reductions have been measured yet.
 
 ## Answers to likely architecture questions

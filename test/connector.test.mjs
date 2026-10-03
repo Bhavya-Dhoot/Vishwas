@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { randomBytes } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
+import { DatabaseSync } from 'node:sqlite';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -34,6 +35,8 @@ test('sample hospital authenticates, validates its directory and reserves capaci
     const slotId = imported.slots[0].id;
     const first = await hospital.connector.reserve({ idempotencyKey: 'opaque_1', slotId });
     assert.deepEqual(await hospital.connector.reserve({ idempotencyKey: 'opaque_1', slotId }), first);
+    assert.deepEqual(await hospital.connector.lookup('opaque_1'), first);
+    assert.equal(await hospital.connector.lookup('missing_key'), null);
     const attempts = await Promise.allSettled([
       hospital.connector.reserve({ idempotencyKey: 'opaque_2', slotId }),
       hospital.connector.reserve({ idempotencyKey: 'opaque_3', slotId }),
@@ -43,7 +46,10 @@ test('sample hospital authenticates, validates its directory and reserves capaci
     await assert.rejects(hospital.connector.reserve({ idempotencyKey: 'opaque_1', slotId: imported.slots[1].id }), { status: 409 });
     assert.deepEqual(await hospital.connector.cancel(first.id), { id: first.id, status: 'cancelled' });
     assert.deepEqual(await hospital.connector.cancel(first.id), { id: first.id, status: 'cancelled' });
-    assert.deepEqual(await hospital.connector.reserve({ idempotencyKey: 'opaque_1', slotId }), first);
+    assert.equal((await hospital.connector.lookup('opaque_1')).status, 'cancelled');
+    await assert.rejects(hospital.connector.reserve({ idempotencyKey: 'opaque_1', slotId }), { status: 409 });
+    assert.equal((await hospital.connector.cancelByKey('opaque_never_sent')).status, 'cancelled');
+    await assert.rejects(hospital.connector.reserve({ idempotencyKey: 'opaque_never_sent', slotId }), { status: 409 });
     const unknownField = await fetch(hospital.baseUrl + '/bookings', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ idempotencyKey: 'opaque_4', slotId, patientName: 'must not cross this API' }) });
     assert.equal(unknownField.status, 400);
   } finally { await hospital.close(); }
@@ -79,8 +85,8 @@ test('workflow only commits after a hospital acknowledgment; conflicts can relea
     await hospital.connector.cancel(reservation.id);
     assert.equal(workflow.getState().episodes.find(value => value.id === episodeId).status, 'department_inquiry');
     preview = workflow.previewAcceptance({ episodeId }, 'Demo staff');
-    const retry = await hospital.connector.reserve({ idempotencyKey: key, slotId: preview.result.slotId });
-    assert.equal(retry.id, reservation.id);
+    const retry = await hospital.connector.reserve({ idempotencyKey: `${key}:retry`, slotId: preview.result.slotId });
+    assert.notEqual(retry.id, reservation.id);
     assert.equal(workflow.commitAcceptance(preview).result.status, 'booked');
 
     const second = workflow.act('create_patient', { name: 'Outage Demo', language: 'English', contactConsent: true, caregiverConsent: false, departmentId: 'neurology', scheduleConsent: true });
@@ -157,4 +163,166 @@ test('staff API sync and one acceptance reach the sample hospital; duplicate cli
     const state = await (await fetch(base + '/api/state', { headers: auth })).json();
     assert.equal(state.episodes.find(value => value.id === next.body.result.episodeId).status, 'department_inquiry');
   } finally { await app.close(); if (hospital.server.listening) await hospital.close(); }
+});
+
+async function openDemo(dbPath, key, hospitalConnector) {
+  const app = createApp({ mode: 'demo', dbPath, key, hospitalConnector });
+  await app.ready;
+  app.server.listen(0, '127.0.0.1');
+  await once(app.server, 'listening');
+  const base = `http://127.0.0.1:${app.server.address().port}`;
+  const login = await fetch(base + '/api/session/demo', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ role: 'staff' }) });
+  const session = await login.json();
+  const headers = { 'content-type': 'application/json', cookie: login.headers.get('set-cookie').split(';')[0], 'x-csrf-token': session.csrfToken };
+  const post = async (path, body) => fetch(base + path, { method: 'POST', headers, body: JSON.stringify(body) });
+  const action = (type, payload) => post('/api/actions', { type, payload });
+  const state = async () => (await fetch(base + '/api/state', { headers })).json();
+  const status = async () => (await fetch(base + '/api/connector/status', { headers })).json();
+  return { app, base, action, post, state, status };
+}
+
+test('startup replays an encrypted intent after remote confirmation but lost acknowledgment', async () => {
+  const folder = await mkdtemp(join(tmpdir(), 'vishwas-booking-recovery-'));
+  const dbPath = join(folder, 'app.sqlite');
+  const key = randomBytes(32).toString('hex');
+  let hospital;
+  let app;
+  try {
+    hospital = await start({ dbPath: join(folder, 'hospital.sqlite') });
+    let lost;
+    const dropped = { ...hospital.connector, reserve: async args => {
+      const result = await hospital.connector.reserve(args);
+      lost = result;
+      throw new HospitalConnectorError(504, 'Hospital acknowledgment was lost');
+    } };
+    let demo = await openDemo(dbPath, key, dropped);
+    app = demo.app;
+    assert.equal((await demo.post('/api/connector/sync', {})).status, 200);
+    const intake = await (await demo.action('create_patient', { name: 'Recovery Demo', language: 'Hindi', contactConsent: true, caregiverConsent: false, departmentId: 'endocrinology', scheduleConsent: true })).json();
+    const episodeId = intake.result.episodeId;
+    assert.equal((await demo.action('accept_inquiry', { episodeId })).status, 504);
+    assert.equal((await demo.status()).pendingBookings, 1);
+    assert.equal((await demo.state()).episodes.find(value => value.id === episodeId).status, 'department_inquiry');
+    const inspect = new DatabaseSync(dbPath);
+    const intent = inspect.prepare('SELECT id, json FROM booking_intents').get();
+    inspect.close();
+    assert.notEqual(intent.id, episodeId);
+    assert.equal(JSON.parse(intent.json).v, 2);
+    assert.ok(!intent.json.includes(episodeId) && !intent.json.includes(lost.idempotencyKey));
+    await app.close(); app = null;
+    const offlineConnector = hospital.connector;
+    await hospital.close(); hospital = null;
+
+    demo = await openDemo(dbPath, key, offlineConnector);
+    app = demo.app;
+    await app.recoverBookings();
+    assert.equal((await demo.status()).pendingBookings, 1);
+    assert.equal((await demo.state()).episodes.find(value => value.id === episodeId).status, 'department_inquiry');
+    await app.close(); app = null;
+    hospital = await start({ dbPath: join(folder, 'hospital.sqlite') });
+
+    demo = await openDemo(dbPath, key, hospital.connector);
+    app = demo.app;
+    await app.recoverBookings();
+    const recovered = await demo.state();
+    const episode = recovered.episodes.find(value => value.id === episodeId);
+    assert.equal(episode.status, 'booked');
+    assert.equal(episode.hospitalReservation.id, lost.id);
+    assert.deepEqual(await hospital.connector.lookup(lost.idempotencyKey), lost);
+    assert.equal((await demo.status()).pendingBookings, 0);
+    assert.ok(recovered.audit.some(entry => entry.episodeId === episodeId && entry.action === 'accept_inquiry' && entry.actor === 'Demo staff'));
+    assert.ok(recovered.audit.some(entry => entry.episodeId === episodeId && entry.action === 'reconcile_booking' && entry.actor === 'System reconciliation'));
+  } finally { await app?.close(); await hospital?.close(); await rm(folder, { recursive: true, force: true }); }
+});
+
+test('changed slot retires an uncertain remote booking before a fresh booking can proceed', async () => {
+  const folder = await mkdtemp(join(tmpdir(), 'vishwas-booking-change-'));
+  const dbPath = join(folder, 'app.sqlite');
+  const key = randomBytes(32).toString('hex');
+  let hospital;
+  let app;
+  try {
+    hospital = await start({ dbPath: join(folder, 'hospital.sqlite') });
+    let lost;
+    const dropped = { ...hospital.connector, reserve: async args => {
+      lost = await hospital.connector.reserve(args);
+      throw new HospitalConnectorError(504, 'Hospital acknowledgment was lost');
+    } };
+    let demo = await openDemo(dbPath, key, dropped);
+    app = demo.app;
+    await demo.post('/api/connector/sync', {});
+    const intake = await (await demo.action('create_patient', { name: 'Changed Slot Demo', language: 'English', contactConsent: true, caregiverConsent: false, departmentId: 'neurology', scheduleConsent: true })).json();
+    const episodeId = intake.result.episodeId;
+    assert.equal((await demo.action('accept_inquiry', { episodeId })).status, 504);
+    assert.equal((await demo.action('set_date', { date: '2026-10-04' })).status, 200);
+    await app.close(); app = null;
+    await hospital.close(); hospital = await start({ dbPath: join(folder, 'hospital.sqlite') });
+
+    demo = await openDemo(dbPath, key, hospital.connector);
+    app = demo.app;
+    await app.recoverBookings();
+    assert.equal((await demo.status()).pendingBookings, 0);
+    assert.equal((await hospital.connector.lookup(lost.idempotencyKey)).status, 'cancelled');
+    assert.equal((await demo.state()).episodes.find(value => value.id === episodeId).status, 'department_inquiry');
+    const accepted = await demo.action('accept_inquiry', { episodeId });
+    assert.equal(accepted.status, 200);
+    const booked = (await accepted.json()).episodes.find(value => value.id === episodeId);
+    assert.equal(booked.status, 'booked');
+    assert.notEqual(booked.slotId, lost.slotId);
+    await assert.rejects(hospital.connector.reserve({ idempotencyKey: lost.idempotencyKey, slotId: lost.slotId }), { status: 409 });
+  } finally { await app?.close(); await hospital?.close(); await rm(folder, { recursive: true, force: true }); }
+});
+
+test('withdrawn scheduling consent cancels an uncertain booking and leaves staff scheduling visible', async () => {
+  const folder = await mkdtemp(join(tmpdir(), 'vishwas-booking-consent-'));
+  const dbPath = join(folder, 'app.sqlite');
+  const key = randomBytes(32).toString('hex');
+  let hospital;
+  let app;
+  try {
+    hospital = await start({ dbPath: join(folder, 'hospital.sqlite') });
+    let lost;
+    const dropped = { ...hospital.connector, reserve: async args => {
+      lost = await hospital.connector.reserve(args);
+      throw new HospitalConnectorError(504, 'Hospital acknowledgment was lost');
+    } };
+    let demo = await openDemo(dbPath, key, dropped);
+    app = demo.app;
+    await demo.post('/api/connector/sync', {});
+    const patient = await fetch(demo.base + '/api/session/patient', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Consent Recovery Demo', language: 'English', contactConsent: true, caregiverConsent: false, departmentId: 'neurology', scheduleConsent: true }),
+    });
+    const intake = await patient.json();
+    const episodeId = intake.result.episodeId;
+    assert.equal((await demo.action('accept_inquiry', { episodeId })).status, 504);
+    const otherPatient = await fetch(demo.base + '/api/session/patient', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Other Consent Demo', language: 'English', contactConsent: false, caregiverConsent: false, departmentId: 'neurology', scheduleConsent: false }),
+    });
+    const otherEpisodeId = (await otherPatient.json()).result.episodeId;
+    const patientHeaders = { 'content-type': 'application/json', cookie: patient.headers.get('set-cookie').split(';')[0], 'x-csrf-token': intake.session.csrfToken };
+    assert.equal((await fetch(demo.base + '/api/actions', {
+      method: 'POST', headers: patientHeaders,
+      body: JSON.stringify({ type: 'set_scheduling_consent', payload: { episodeId: otherEpisodeId, scheduleConsent: true } }),
+    })).status, 404);
+    const patientAction = await fetch(demo.base + '/api/actions', {
+      method: 'POST', headers: patientHeaders,
+      body: JSON.stringify({ type: 'set_scheduling_consent', payload: { episodeId, scheduleConsent: false } }),
+    });
+    assert.equal(patientAction.status, 200);
+    await app.close(); app = null;
+    await hospital.close(); hospital = await start({ dbPath: join(folder, 'hospital.sqlite') });
+
+    demo = await openDemo(dbPath, key, hospital.connector);
+    app = demo.app;
+    await app.recoverBookings();
+    const state = await demo.state();
+    const episode = state.episodes.find(value => value.id === episodeId);
+    assert.equal(episode.status, 'awaiting_staff_scheduling');
+    assert.equal(episode.scheduleConsent, false);
+    assert.equal((await hospital.connector.lookup(lost.idempotencyKey)).status, 'cancelled');
+    assert.equal((await demo.status()).pendingBookings, 0);
+    assert.ok(state.audit.some(entry => entry.episodeId === episodeId && entry.action === 'reconcile_booking'));
+  } finally { await app?.close(); await hospital?.close(); await rm(folder, { recursive: true, force: true }); }
 });

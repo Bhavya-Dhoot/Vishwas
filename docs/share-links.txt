@@ -1,0 +1,39 @@
+Vishwas — patient routing from home, appointment coordination and follow-up.
+
+MVP demo:
+https://vishwas-care-demo.vercel.app
+
+Supporting PDF:
+https://vishwas-care-demo.vercel.app/Vishwas-Supporting-Document.pdf
+
+GitHub:
+https://github.com/Bhavya-Dhoot/Vishwas
+
+Submission answers:
+https://github.com/Bhavya-Dhoot/Vishwas/blob/main/docs/submission.md
+
+Business model:
+https://github.com/Bhavya-Dhoot/Vishwas/blob/main/docs/business-model.md
+
+Research references and relevance:
+https://github.com/Bhavya-Dhoot/Vishwas/blob/main/docs/research-references.md
+
+Electronic referral systems — scoping review:
+https://pmc.ncbi.nlm.nih.gov/articles/PMC6511625/
+
+Appointment reminders — Cochrane review:
+https://www.cochrane.org/evidence/CD007458_mobile-phone-messaging-reminders-attendance-healthcare-appointments
+
+TEXT2U diabetes follow-up trial:
+https://pmc.ncbi.nlm.nih.gov/articles/PMC8569538/
+
+Hyperledger Fabric architecture paper:
+https://arxiv.org/abs/1801.10228
+
+The Emergence of Edge Computing — author PDF:
+https://elijah.cs.cmu.edu/DOCS/satya-edge2016.pdf
+
+NIST authenticated-encryption standard:
+https://nvlpubs.nist.gov/nistpubs/legacy/sp/nistspecialpublication800-38d.pdf
+
+Demo uses fictional data. Public sessions may reset; file uploads and hospital/blockchain connections are disabled on the hosted version. The repository includes the separately tested local connected prototype. Research supports the design choices, not measured results for Vishwas.

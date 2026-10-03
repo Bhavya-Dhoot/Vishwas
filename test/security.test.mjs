@@ -8,8 +8,29 @@ import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { createWorkflow } from '../src/workflow.mjs';
 import { createApp } from '../server.mjs';
+import { passwordMatches, seal, unseal } from '../src/security.mjs';
 
 const key = randomBytes(32);
+
+test('context-bound envelopes authenticate their record context and keep legacy migration explicit', () => {
+  const localKey = randomBytes(32);
+  const envelope = seal({ id: 'record-a' }, localKey, 'document:record-a');
+  assert.equal(JSON.parse(envelope).v, 2);
+  assert.deepEqual(unseal(envelope, localKey, 'document:record-a'), { id: 'record-a' });
+  assert.throws(() => unseal(envelope, localKey, 'document:record-b'), /authenticated/);
+  assert.throws(() => unseal(envelope, localKey), /context/);
+
+  const legacy = seal({ id: 'record-a' }, localKey);
+  assert.equal(JSON.parse(legacy).v, 1);
+  assert.deepEqual(unseal(legacy, localKey), { id: 'record-a' });
+  assert.throws(() => unseal(legacy, localKey, 'document:record-a'), /explicit migration/);
+  assert.throws(() => seal({}, randomBytes(16), 'record-a'), /32 bytes/);
+});
+
+test('password verification rejects malformed stored verifiers', () => {
+  assert.equal(passwordMatches('password', null), false);
+  assert.equal(passwordMatches('password', [randomBytes(16), randomBytes(31)]), false);
+});
 
 test('snapshot is encrypted, requires its key, and refuses tampering and plaintext', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'vishwas-security-'));
@@ -22,6 +43,7 @@ test('snapshot is encrypted, requires its key, and refuses tampering and plainte
     const saved = db.prepare('SELECT json FROM app_state WHERE id = 1').get().json;
     assert.ok(!saved.includes('Sensitive Test'));
     assert.match(saved, /"nonce"/);
+    assert.equal(JSON.parse(saved).v, 2);
     const beforeNonce = JSON.parse(saved).nonce;
     workflow = createWorkflow(path, { key });
     assert.ok(workflow.getState().patients.some(p => p.name === 'Sensitive Test'));

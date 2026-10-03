@@ -93,7 +93,7 @@ For scale illustration, 10 subscribed sites at the same price produce **₹2 lak
 4. **Measure one diabetes OPD, then expand within the site.** Reuse the connector and staff training across suitable departments only after the first workflow is useful.
 5. **Build an integration channel after repeatable deployments.** Hospital software vendors and implementation partners can become a route to more sites once the adapter and support model work consistently.
 
-The paid pilot starts after the production prerequisites are agreed and completed, not immediately from the current local demo. Those include individual accounts, patient identity checks, HTTPS, managed key operations, retention/deletion procedures, a real vendor connection and booking recovery. A proposed ten-week evaluation could use two weeks of baseline measurement, six weeks of operation and two weeks of review. Follow-up outcomes must use clinician-set dates that fall within an agreed observation window; longer journeys need later evaluation.
+The paid pilot starts after the production prerequisites are agreed and completed, not immediately from the current local demo. Those include hospital-managed use of the implemented named accounts, patient identity checks, HTTPS, managed key operations, retention/deletion procedures, a real vendor connection and validation of the implemented booking recovery against that vendor. A proposed ten-week evaluation could use two weeks of baseline measurement, six weeks of operation and two weeks of review. Follow-up outcomes must use clinician-set dates that fall within an agreed observation window; longer journeys need later evaluation.
 
 ## Pilot measures and conversion decision
 

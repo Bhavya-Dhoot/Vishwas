@@ -7,6 +7,10 @@ Vishwas starts before the patient travels to hospital. From home, the patient su
 **Applicant:** Bhavya Dhoot · **Track:** Diabetes · **Primary user:** Doctor / Care Team
 **Submission category:** Clinic Operations & Patient Flow
 
+**[Open the public MVP](https://vishwas-care-demo.vercel.app)** · **[Supporting PDF](https://vishwas-care-demo.vercel.app/Vishwas-Supporting-Document.pdf)** · **[Research papers](docs/research-references.md)**
+
+The Vercel demo uses separate temporary visitor workspaces. Sessions may reset; uploads and hospital/Fabric connections are disabled there. It runs without a laptop or tunnel. The local version below provides persistent encrypted state and the connected demonstration. See [hosted demo details](docs/public-demo.md) and [WhatsApp-ready links](docs/share-links.txt).
+
 ![Patient starts a pre-arrival request in Vishwas](docs/screenshots/pre-arrival.png)
 
 ## Run it
@@ -54,13 +58,13 @@ See the [patient's plan before arrival](docs/screenshots/patient-plan.png), [sta
 
 ## Integration status
 
-This is a working **local, synthetic-data prototype**. The sample hospital connector and a real local Hyperledger Fabric network have passed a connected journey from upload through confirmed return; see [verification](docs/verification.md) and [transaction evidence](docs/connected-proof.json). No real hospital has supplied an API or accepted an integration. WhatsApp delivery and ABHA consent are simulated. No real messages are sent, no ABHA records are fetched, and there is no public hosted app or hospital pilot.
+The **local, synthetic-data prototype** has passed a connected journey from upload through confirmed return using the sample hospital connector and a real local Hyperledger Fabric network; see [verification](docs/verification.md) and [transaction evidence](docs/connected-proof.json). The separate [public Vercel demo](docs/public-demo.md) demonstrates routing and follow-up without those connections. No real hospital has supplied an API or accepted an integration. WhatsApp delivery and ABHA consent are simulated. No real messages are sent or ABHA records fetched, and no hospital pilot has taken place.
 
-For the connected local demonstration, start the [sample hospital service](integrations/sample-hospital/README.md), then use `scripts/start-connected-demo.ps1` to preflight its token and start Vishwas with a persistent connected database. The script can also preflight the [local Fabric bridge](integrations/fabric/README.md); `-WithoutFabric` runs the connector demonstration without ledger anchoring. These are separate local services with their own setup. `HOSPITAL_API_URL` and `HOSPITAL_API_TOKEN` configure the connector; the sample token lives outside the repository under `%LOCALAPPDATA%\Vishwas\sample-hospital-api.token`. Sync the directory from the staff control before accepting a new inquiry. Do not enable a connector against existing local bookings until those bookings are reconciled. While connected, reset and manual booking/rescheduling are blocked to avoid orphan reservations. A crash between hospital acknowledgement and local save still requires operational reconciliation.
+For the connected local demonstration, start the [sample hospital service](integrations/sample-hospital/README.md), then use `scripts/start-connected-demo.ps1` to preflight its token and start Vishwas with a persistent connected database. The script can also preflight the [local Fabric bridge](integrations/fabric/README.md); `-WithoutFabric` runs the connector demonstration without ledger anchoring. These are separate local services with their own setup. `HOSPITAL_API_URL` and `HOSPITAL_API_TOKEN` configure the connector; the sample token lives outside the repository under `%LOCALAPPDATA%\Vishwas\sample-hospital-api.token`. Sync the directory from the staff control before accepting a new inquiry. Do not enable a connector against existing local bookings until those bookings are reconciled. While connected, reset and manual booking/rescheduling are blocked to avoid orphan reservations. An encrypted durable booking journal now replays pending reservations on startup and on bounded scheduler passes. The sample API supports lookup and terminal cancellation by idempotency key. Unresolved bookings stay pending; a real adapter must implement the same guarantees.
 
 The AI adapter is implemented and tested with mocked responses. To configure it, copy .env.example to .env and set OPENAI_API_KEY and OPENAI_MODEL for a supported Responses API model. No key is required to use the prototype. **Improve draft** sends only a selected administrative category, language and approved template; it does not send patient records or free text. Staff still approve the result. Live AI calls have not been verified in this environment.
 
-Keep the server on localhost and use fictional data. Demo entry is deliberately open; it is not patient identity verification. The separate protected local mode requires a staff password and supplied encryption key, disables demo entry/reset/date changes, and starts without seeded patient records. It remains a synthetic-data evaluation, with a fictional clinician directory and no public deployment.
+Keep the server on localhost and use fictional data. Demo entry is deliberately open; it is not patient identity verification. The separate protected local mode supports named staff accounts (or a legacy shared password) and requires a supplied encryption key, disables demo entry/reset/date changes, and starts without seeded patient records. It remains a synthetic-data evaluation, with a fictional clinician directory and no public deployment.
 
 ## Security and protected local evaluation
 
@@ -68,7 +72,11 @@ See [security design and blockchain decision](docs/security-design.md) for the t
 
 For protected local evaluation, set `APP_MODE=protected`, a unique `STAFF_PASSWORD` of at least 12 characters, and `STATE_KEY` containing 64 hexadecimal characters generated by a cryptographically secure random generator. Use a new database path or the protected-mode default. Keep these values in an ignored environment file or supply them through a secret manager; never commit or project them. `.env.example` documents the configuration without real secrets.
 
-Protected mode uses a salted scrypt verifier, login throttling and server sessions. It does not provide individual staff accounts, patient identity proof or patient account recovery after session expiry. Before real use, add HTTPS, managed key lifecycle and recovery, verified identities, hospital integrations, retention/deletion procedures and an independent security review. No regulatory certification is claimed.
+Protected mode supports named staff accounts with unique salted scrypt verifiers, login throttling and server sessions. Staff actions retain their individual audit actor. It does not provide patient identity proof, SSO/MFA or patient account recovery after session expiry. Before real use, add HTTPS, managed key lifecycle and recovery, verified identities, hospital integrations, retention/deletion procedures and an independent security review. No regulatory certification is claimed.
+
+For named local accounts, edge-only operation and the closed/open security gaps, see [security hardening](docs/security-hardening.md). `EDGE_ONLY=true` forces local templates and loopback-only connector endpoints. The connected demo launcher enables it. No patient records are cached for offline browser use. AES-GCM binds state, document and booking-intent records to their storage context.
+
+Run `node scripts/benchmark-edge.mjs` for a synthetic local scheduling benchmark; it is not a production capacity claim.
 
 ## Submission materials
 
@@ -82,6 +90,10 @@ Protected mode uses a salted scrypt verifier, login throttling and server sessio
 - [75-second live demo script](docs/demo-script.md)
 - [Security design and blockchain decision](docs/security-design.md)
 - [Verification record](docs/verification.md)
+- [Supporting PDF](output/pdf/Vishwas-Supporting-Document.pdf)
+- [Research references with direct links](docs/research-references.md)
+- [Public demo and deployment limits](docs/public-demo.md)
+- [Repository security scan](docs/repository-security-audit.md)
 
 The project started with the concept and an existing deck. This is a **new solution**, with the prototype built during submission preparation and its progress disclosed. There was no previously launched product. The deck itself was not supplied for review or upload.
 

@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { createDocuments } from '../src/documents.mjs';
+import { seal, unseal } from '../src/security.mjs';
 import { createApp } from '../server.mjs';
 
 const owner = { role: 'patient', patientId: 'synthetic_patient' };
@@ -19,19 +20,53 @@ test('document metadata, salt and bytes persist encrypted and authenticated', ()
   let docs = createDocuments(path, { key });
   try {
     const doc = docs.upload(upload, owner);
+    const second = docs.upload({ ...upload, name: 'Another synthetic referral' }, owner);
     docs.close();
     docs = createDocuments(path, { key });
     assert.equal(docs.get(doc.id, owner).contentBase64, upload.contentBase64);
     const db = new DatabaseSync(path);
     try {
-      const row = db.prepare('SELECT encrypted FROM documents').get();
-      for (const secret of [upload.name, upload.patientId, upload.contentBase64, doc.commitment]) assert.equal(row.encrypted.includes(secret), false);
-      const envelope = JSON.parse(row.encrypted);
+      const rows = db.prepare('SELECT id, encrypted FROM documents ORDER BY id').all();
+      assert.equal(rows.length, 2);
+      for (const row of rows) {
+        for (const secret of [upload.name, upload.patientId, upload.contentBase64, doc.commitment, second.commitment]) assert.equal(row.encrypted.includes(secret), false);
+      }
+      const firstRow = rows.find(row => row.id === doc.id);
+      const secondRow = rows.find(row => row.id === second.id);
+      db.prepare('UPDATE documents SET encrypted = ? WHERE id = ?').run(secondRow.encrypted, firstRow.id);
+      db.prepare('UPDATE documents SET encrypted = ? WHERE id = ?').run(firstRow.encrypted, secondRow.id);
+      assert.throws(() => docs.get(doc.id, owner), /authenticated/);
+      db.prepare('UPDATE documents SET encrypted = ? WHERE id = ?').run(firstRow.encrypted, firstRow.id);
+      db.prepare('UPDATE documents SET encrypted = ? WHERE id = ?').run(secondRow.encrypted, secondRow.id);
+      const envelope = JSON.parse(firstRow.encrypted);
       envelope.tag = randomBytes(16).toString('base64');
-      db.prepare('UPDATE documents SET encrypted = ?').run(JSON.stringify(envelope));
+      db.prepare('UPDATE documents SET encrypted = ? WHERE id = ?').run(JSON.stringify(envelope), doc.id);
       assert.throws(() => docs.get(doc.id, owner), /authenticated/);
     } finally { db.close(); }
   } finally {
+    docs.close();
+    assert.ok(resolve(directory).startsWith(resolve(tmpdir()) + sep));
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('legacy document envelopes migrate to record-bound encryption after ID validation', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'vishwas-document-migration-'));
+  const path = join(directory, 'documents.sqlite');
+  const key = randomBytes(32);
+  const docs = createDocuments(path, { key });
+  const db = new DatabaseSync(path);
+  try {
+    const doc = docs.upload(upload, owner);
+    const legacy = docs.get(doc.id, owner);
+    db.prepare('UPDATE documents SET encrypted = ? WHERE id = ?').run(seal(legacy, key), doc.id);
+    assert.equal(JSON.parse(db.prepare('SELECT encrypted FROM documents WHERE id = ?').get(doc.id).encrypted).v, 1);
+    assert.equal(docs.get(doc.id, owner).contentBase64, upload.contentBase64);
+    const migrated = db.prepare('SELECT encrypted FROM documents WHERE id = ?').get(doc.id).encrypted;
+    assert.equal(JSON.parse(migrated).v, 2);
+    assert.equal(unseal(migrated, key, `document:${doc.id}`).id, doc.id);
+  } finally {
+    db.close();
     docs.close();
     assert.ok(resolve(directory).startsWith(resolve(tmpdir()) + sep));
     rmSync(directory, { recursive: true, force: true });
@@ -45,7 +80,7 @@ test('documents enforce ownership, explicit ledger consent, salted commitments a
     calls.push(options.body ? JSON.parse(options.body) : String(url));
     if (!available) throw new Error('offline');
     const commitment = options.body ? JSON.parse(options.body).commitment : String(url).split('/').at(-1);
-    return { ok: true, json: async () => ({ commitment, exists: true }) };
+    return new Response(JSON.stringify({ commitment, exists: true, status: 'anchored', transactionId: 'a'.repeat(64) }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   } });
   try {
     const first = docs.upload(upload, owner);
@@ -69,9 +104,36 @@ test('documents enforce ownership, explicit ledger consent, salted commitments a
     assert.throws(() => docs.upload({ ...upload, contentBase64: '/w==' }, owner), /UTF-8/);
     for (let n = 0; n < 3; n++) docs.upload(upload, owner);
     assert.throws(() => docs.upload(upload, owner), /five/);
-    assert.equal(docs.delete(second.id, owner).ledgerCommitmentRetained, true);
+    const deletion = docs.delete(second.id, owner);
+    assert.equal(deletion.ledgerCommitmentRetained, true);
+    assert.match(deletion.message, /remains on the ledger/);
+    assert.doesNotMatch(deletion.message, /erased|removed from the ledger/i);
     assert.throws(() => docs.get(second.id, owner), /not found/);
   } finally { docs.close(); }
+});
+
+test('Fabric receipts must be bounded and prove an anchored transaction; unsafe URLs are never fetched', async () => {
+  let calls = 0;
+  for (const gatewayUrl of ['https://user:secret@example.test', 'https://ledger.example?x=1', 'https://ledger.example#fragment']) {
+    const invalid = createDocuments(':memory:', { key: randomBytes(32), gatewayUrl, gatewayToken: 'test', fetchImpl: async () => { calls++; throw new Error('must not fetch'); } });
+    try {
+      const doc = invalid.upload({ ...upload, ledgerConsent: true }, owner);
+      assert.equal((await invalid.verify(doc.id, owner)).status, 'unavailable');
+      assert.equal(calls, 0);
+    } finally { invalid.close(); }
+  }
+
+  for (const response of [
+    () => new Response(JSON.stringify({ commitment: 'x'.repeat(64), exists: true }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    () => new Response('x'.repeat(4097), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+  ]) {
+    const docs = createDocuments(':memory:', { key: randomBytes(32), gatewayUrl: 'https://ledger.example', gatewayToken: 'test', fetchImpl: async () => response() });
+    try {
+      const doc = docs.upload({ ...upload, ledgerConsent: true }, owner);
+      assert.equal((await docs.anchor(doc.id, owner)).anchorStatus, 'anchor_failed');
+      assert.equal((await docs.verify(doc.id, owner)).status, 'unavailable');
+    } finally { docs.close(); }
+  }
 });
 
 test('document HTTP routes require sessions, CSRF and owner scope; download is attachment-only', async () => {

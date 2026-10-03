@@ -1,6 +1,6 @@
 {
   "prepared_on": "2026-10-03",
-  "status": "Working local synthetic-data prototype: 30 automated tests, browser journey, sample hospital API and real local Hyperledger Fabric document verification passed. No live hospital deployment.",
+  "status": "Public visitor-isolated preview deployed on Vercel with disposable in-memory state and no uploads or external connectors. Fuller local synthetic-data prototype has 43 passing application tests, browser smoke and connected sample hospital/Fabric proof. No live hospital deployment.",
   "form": {
     "applicant_name": "Bhavya Dhoot",
     "track": "Diabetes",
@@ -8,17 +8,22 @@
     "use_case": "Clinic Operations & Patient Flow",
     "solution_name": "Vishwas",
     "problem": "A person with diabetes may have a referral and previous reports but still arrive at hospital without knowing which clinic will receive them or whether a suitable doctor is available. Staff then spend time redirecting patients, checking papers and coordinating appointments across desks and phone calls. These arrangements could begin while the patient is still at home. After the consultation, return dates and missed visits are often tracked separately, leaving care teams to discover travel, work or language barriers through repeated calls. Vishwas addresses this coordination gap for patients, caregivers and hospital teams: getting an existing referral into the correct department's queue before arrival, arranging the appointment and keeping the next visit visible.",
-    "solution": "Vishwas starts with a short enquiry from home: the department named in an existing referral, uploaded documents, language and appointment preferences. Published routing rules send the request to that department's inbox; an unclear referral goes to a coordination inbox. After the department accepts once, Vishwas assigns an available doctor and schedules a compatible slot with the patient's consent. The patient receives the appointment, location and preparation checklist before travelling. A configurable hospital connector exchanges directories, availability and booking acknowledgements. Uploaded files stay encrypted off-chain; an optional Hyperledger Fabric record holds only a salted verification commitment. After the visit, clinician-set return dates drive reminders, barrier handling and attendance tracking. The demo uses fictional patients, a sample hospital API and simulated messaging. Vishwas does not interpret records, diagnose, recommend tests or treatment, or infer a specialty from symptoms.",
-    "technology": "We use a JavaScript web app, Node.js 22 and encrypted SQLite storage. Versioned rules route explicit referrals; deterministic scheduling checks department, language, preferences and capacity. A configurable REST connector integrates a sample hospital API. AES-256-GCM protects records; server sessions enforce access. Hyperledger Fabric stores salted document commitments, with files off-chain. Optional OpenAI drafting supports administrative replies. WhatsApp delivery and ABHA consent remain simulated.",
+    "solution": "Vishwas starts with an enquiry from home: the department named in an existing referral, language and appointment preferences. Exact department rules send it to that inbox; an unclear referral goes to coordination. After one staff acceptance, Vishwas assigns an available doctor and compatible slot with the patient's consent. The patient sees the appointment, location and preparation checklist before travelling. The local prototype encrypts uploaded files off-chain, exchanges directory and booking acknowledgements with a sample hospital API, and can record a salted verification commitment on a local Hyperledger Fabric network. Clinician-set return dates then drive reminders, barrier handling and attendance tracking. A hosted public preview demonstrates the enquiry and scheduling flow with fictional data; it does not connect to the hospital API or Fabric or accept uploads. Vishwas does not interpret records, infer specialties from symptoms, diagnose or recommend tests or treatment.",
+    "technology": "JavaScript web app, Node.js 22 and encrypted SQLite locally. Versioned rules route existing referrals and match appointments. AES-256-GCM binds records to storage context; named staff sessions control access. An encrypted booking journal supports interruption recovery. A sample REST adapter exchanges schedules and booking acknowledgements; optional local Hyperledger Fabric holds salted commitments. The hosted public preview uses isolated, disposable in-memory state without uploads or external connectors. WhatsApp and ABHA remain simulated.",
     "existing_work": "No - we are building a new solution",
     "existing_work_detail": "We started with the concept and an existing pitch deck. The local prototype was built during submission preparation using fictional patients. This is a new solution, with no prior launched product or live hospital integration.",
     "scope_confirmation": "Vishwas routes an explicitly stated referral department and coordinates available appointments. It does not interpret uploaded medical records, select a specialty from symptoms, diagnose, score clinical risk, suggest investigations or treatment, or give autonomous clinical advice. Unclear requests enter a coordination inbox.",
     "supporting_links": [
       "https://github.com/Bhavya-Dhoot/Vishwas",
+      "https://vishwas-care-demo.vercel.app",
+      "https://vishwas-care-demo.vercel.app/Vishwas-Supporting-Document.pdf",
+      "https://github.com/Bhavya-Dhoot/Vishwas/blob/main/docs/research-references.md",
       "https://raw.githubusercontent.com/Bhavya-Dhoot/Vishwas/main/brag-output/brag.mp4"
     ],
     "pitch_deck_status": "Existing deck reported by applicant; not provided for review or uploaded here. Form requests 6–8 slides, PDF or PowerPoint, maximum 25 MB.",
-    "prototype_url": null,
+    "prototype_url": "https://vishwas-care-demo.vercel.app",
+    "supporting_pdf_url": "https://vishwas-care-demo.vercel.app/Vishwas-Supporting-Document.pdf",
+    "research_url": "https://github.com/Bhavya-Dhoot/Vishwas/blob/main/docs/research-references.md",
     "video_url": "https://raw.githubusercontent.com/Bhavya-Dhoot/Vishwas/main/brag-output/brag.mp4",
     "linkedin_url": null
   },
@@ -30,14 +35,14 @@
       "character_limit": 1200
     },
     "solution": {
-      "words": 136,
-      "characters": 1012,
+      "words": 141,
+      "characters": 993,
       "word_limit": 150,
       "character_limit": 1200
     },
     "technology": {
-      "words": 63,
-      "characters": 505,
+      "words": 70,
+      "characters": 545,
       "word_limit": 80,
       "character_limit": 600
     },
@@ -61,7 +66,9 @@
     "routing": "Explicit referral department or exact directory label only; no medical interpretation. Department accepts once, followed by consented deterministic assignment and scheduling.",
     "hospital_connector": "Configurable sample API implemented and tested over HTTP, including remote booking acknowledgement. Real vendor mapping and hospital acceptance remain future work.",
     "blockchain": "A real two-organization local Hyperledger Fabric 2.5.16 network committed and queried salted document commitments. No patient documents, names, IDs or raw file hashes are on-chain. This is a development network, not a hospital consortium.",
-    "video": "Updated 60-second film demonstrates the revised real local flow: one acceptance, sample hospital API acknowledgement, encrypted upload, actual local Fabric verification and confirmed return. Fictional data; no patient outcome claims."
+    "video": "Updated 60-second film demonstrates the revised real local flow: one acceptance, sample hospital API acknowledgement, encrypted upload, actual local Fabric verification and confirmed return. Fictional data; no patient outcome claims.",
+    "edge": "Local Node/SQLite processing with optional EDGE_ONLY policy: no cloud AI; hospital and Fabric adapters restricted to loopback. No offline patient-browser cache or distributed edge deployment claim.",
+    "public_preview": "Visitor-isolated disposable in-memory SQLite on Vercel. Sessions may reset across cold starts or routing. Uploads disabled; no hospital/Fabric/live WhatsApp/ABHA/cloud AI connection. Not a hospital deployment."
   },
   "business_model": {
     "status": "Proposed commercial model; no paying customers, commercial pilot or measured ROI",

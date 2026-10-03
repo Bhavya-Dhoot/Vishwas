@@ -2,6 +2,23 @@ node_modules/
 .env
 .env.*
 !.env.example
+!.env.sample
+# Local private keys, certificates, and generated identity material
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.crt
+!*.example.crt
+*.cer
+!*.example.cer
+*.der
+**/priv_sk
+**/wallet/
+**/wallets/
+**/msp/keystore/
 data/
 *.sqlite
 *.sqlite-*
@@ -12,3 +29,6 @@ test-results/
 playwright-report/
 *.log
 brag-output/work/
+tmp/
+__pycache__/
+.vercel/

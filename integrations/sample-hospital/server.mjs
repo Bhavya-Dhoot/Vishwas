@@ -55,6 +55,11 @@ export function createSampleHospital({ token, dbPath = ':memory:', directory = s
     try {
       if (request.method === 'GET' && path === '/health') return reply(response, 200, { status: 'ok', kind: 'sample-hospital', data: 'fictional' });
       if (request.method === 'GET' && path === '/directory') return reply(response, 200, catalog);
+      const lookupKey = /^\/bookings\/by-key\/([A-Za-z0-9_.:-]{1,200})$/.exec(path ?? '');
+      if (request.method === 'GET' && lookupKey) {
+        const existing = lookup.get(lookupKey[1]);
+        return existing ? reply(response, 200, shape(existing)) : reply(response, 404, { error: 'Unknown reservation' });
+      }
       if (request.method === 'POST' && path === '/bookings') {
         if (!request.headers['content-type']?.toLowerCase().startsWith('application/json')) return reply(response, 415, { error: 'JSON required' });
         let size = 0;
@@ -75,6 +80,7 @@ export function createSampleHospital({ token, dbPath = ':memory:', directory = s
         try {
           const existing = lookup.get(body.idempotencyKey);
           if (existing && existing.slot_id !== body.slotId) { db.exec('ROLLBACK'); return reply(response, 409, { error: 'Booking key is already bound to another slot' }); }
+          if (existing?.status === 'cancelled') { db.exec('ROLLBACK'); return reply(response, 409, { error: 'Booking key was cancelled' }); }
           if (existing?.status === 'confirmed') result = shape(existing);
           else {
             if (occupied.get(body.slotId).count >= slot.capacity) { db.exec('ROLLBACK'); return reply(response, 409, { error: 'Slot capacity is full' }); }
@@ -85,6 +91,16 @@ export function createSampleHospital({ token, dbPath = ':memory:', directory = s
           db.exec('COMMIT');
         } catch (error) { db.exec('ROLLBACK'); throw error; }
         return reply(response, 200, result);
+      }
+      if (request.method === 'DELETE' && lookupKey) {
+        db.exec('BEGIN IMMEDIATE');
+        try {
+          const existing = lookup.get(lookupKey[1]);
+          const reservationId = existing?.id ?? `reservation_${randomUUID()}`;
+          db.prepare('INSERT INTO reservations(id, booking_key, slot_id, status) VALUES (?, ?, ?, \'cancelled\') ON CONFLICT(booking_key) DO UPDATE SET status = \'cancelled\'').run(reservationId, lookupKey[1], existing?.slot_id ?? '');
+          db.exec('COMMIT');
+          return reply(response, 200, { id: reservationId, idempotencyKey: lookupKey[1], status: 'cancelled' });
+        } catch (error) { db.exec('ROLLBACK'); throw error; }
       }
       const cancellation = /^\/bookings\/([A-Za-z0-9_.:-]{1,200})$/.exec(path ?? '');
       if (request.method === 'DELETE' && cancellation) {

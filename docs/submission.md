@@ -19,9 +19,9 @@ A person with diabetes may have a referral and previous reports but still arrive
 
 ## Your solution
 
-Vishwas starts with a short enquiry from home: the department named in an existing referral, uploaded documents, language and appointment preferences. Published routing rules send the request to that department's inbox; an unclear referral goes to a coordination inbox. After the department accepts once, Vishwas assigns an available doctor and schedules a compatible slot with the patient's consent. The patient receives the appointment, location and preparation checklist before travelling. A configurable hospital connector exchanges directories, availability and booking acknowledgements. Uploaded files stay encrypted off-chain; an optional Hyperledger Fabric record holds only a salted verification commitment. After the visit, clinician-set return dates drive reminders, barrier handling and attendance tracking. The demo uses fictional patients, a sample hospital API and simulated messaging. Vishwas does not interpret records, diagnose, recommend tests or treatment, or infer a specialty from symptoms.
+Vishwas starts with an enquiry from home: the department named in an existing referral, language and appointment preferences. Exact department rules send it to that inbox; an unclear referral goes to coordination. After one staff acceptance, Vishwas assigns an available doctor and compatible slot with the patient's consent. The patient sees the appointment, location and preparation checklist before travelling. The local prototype encrypts uploaded files off-chain, exchanges directory and booking acknowledgements with a sample hospital API, and can record a salted verification commitment on a local Hyperledger Fabric network. Clinician-set return dates then drive reminders, barrier handling and attendance tracking. A hosted public preview demonstrates the enquiry and scheduling flow with fictional data; it does not connect to the hospital API or Fabric or accept uploads. Vishwas does not interpret records, infer specialties from symptoms, diagnose or recommend tests or treatment.
 
-**Length:** 136 words; 1012 characters. Limit: 150 words / 1,200 characters.
+**Length:** 141 words; 993 characters. Limit: 150 words / 1,200 characters.
 
 ## Solution name
 
@@ -39,9 +39,9 @@ The initial enquiry captures an existing recommendation, language and scheduling
 
 ## How you will build it
 
-We use a JavaScript web app, Node.js 22 and encrypted SQLite storage. Versioned rules route explicit referrals; deterministic scheduling checks department, language, preferences and capacity. A configurable REST connector integrates a sample hospital API. AES-256-GCM protects records; server sessions enforce access. Hyperledger Fabric stores salted document commitments, with files off-chain. Optional OpenAI drafting supports administrative replies. WhatsApp delivery and ABHA consent remain simulated.
+JavaScript web app, Node.js 22 and encrypted SQLite locally. Versioned rules route existing referrals and match appointments. AES-256-GCM binds records to storage context; named staff sessions control access. An encrypted booking journal supports interruption recovery. A sample REST adapter exchanges schedules and booking acknowledgements; optional local Hyperledger Fabric holds salted commitments. The hosted public preview uses isolated, disposable in-memory state without uploads or external connectors. WhatsApp and ABHA remain simulated.
 
-**Length:** 63 words; 505 characters. Limit: 80 words / 600 characters.
+**Length:** 70 words; 545 characters. Limit: 80 words / 600 characters.
 
 ## Existing work
 
@@ -60,8 +60,11 @@ Use **6–8 slides**, PDF or PowerPoint, maximum **25 MB**. The existing deck wa
 Paste one supporting link per line:
 
 https://github.com/Bhavya-Dhoot/Vishwas
+https://vishwas-care-demo.vercel.app
+https://vishwas-care-demo.vercel.app/Vishwas-Supporting-Document.pdf
+https://github.com/Bhavya-Dhoot/Vishwas/blob/main/docs/research-references.md
 
-The repository contains the local prototype and submission materials. A public hosted app and LinkedIn URL have not been supplied. The [updated 60-second video](https://raw.githubusercontent.com/Bhavya-Dhoot/Vishwas/main/brag-output/brag.mp4) shows automatic routing, one acceptance, hospital-acknowledged scheduling, encrypted uploads and real local Fabric verification. No form or deck has been submitted on your behalf.
+The [public preview](https://vishwas-care-demo.vercel.app) is a visitor-isolated, disposable demonstration of the enquiry and scheduling flow. Its in-memory Vercel sessions can reset across cold starts or request routing; uploads are disabled, and it has no hospital, Fabric, live WhatsApp, ABHA or cloud AI connection. The [supporting PDF](https://vishwas-care-demo.vercel.app/Vishwas-Supporting-Document.pdf) and [research references](https://github.com/Bhavya-Dhoot/Vishwas/blob/main/docs/research-references.md) provide context. The repository contains the fuller local connected prototype and submission materials. The [updated 60-second video](https://raw.githubusercontent.com/Bhavya-Dhoot/Vishwas/main/brag-output/brag.mp4) shows that **local** prototype with the sample hospital API, encrypted uploads and local Fabric verification. A LinkedIn URL has not been supplied. No form or deck has been submitted on your behalf.
 
 ## Core idea for the PPT
 
@@ -77,6 +80,10 @@ Files are encrypted off-chain with AES-256-GCM. Keys are stored separately, and 
 
 The permissioned ledger is a prototype for verification across participating institutions. A single hospital can run the workflow with encryption and access controls while leaving ledger anchoring disabled. Real deployment needs hospital identities, managed keys, HTTPS, retention rules and operational security review.
 
+## Edge processing and recovery
+
+Routing, appointment matching, encryption, reminders and booking recovery run on the local Node.js server. `EDGE_ONLY=true` uses local templates and restricts the hospital and Fabric adapters to loopback endpoints. Patient records are not cached in browser storage. The hosted public preview uses isolated in-memory state and omits uploads and external connectors. Neither variant is a deployed hospital edge network. Named local staff accounts support audit attribution; a production identity provider and verified patient access remain deployment work. The 42-test local regression suite passed; see [verification](verification.md).
+
 ## ABHA context
 
 Use **Ayushman Bharat Health Account (ABHA)** under **Ayushman Bharat Digital Mission (ABDM)**. The prototype has an optional simulated consent step; it does not verify an ABHA number or retrieve records. Future retrieval requires the applicable ABDM onboarding and consent flow. ABHA does not establish PM-JAY insurance eligibility. See the [Ministry of Health ABDM update](https://www.pib.gov.in/PressReleasePage.aspx?PRID=2003068).
@@ -91,4 +98,4 @@ See the [full business model](business-model.md) for scope, buyer, pricing assum
 
 ## Current build status
 
-The revised interface, deterministic routing, one-acceptance scheduling, encrypted uploads and sample hospital connector are implemented. Thirty automated tests and the browser journey passed. A separate connected walkthrough verified a real local Fabric document transaction, hospital booking acknowledgement, reminders and confirmed return attendance. See the [verification record](verification.md) and [transaction evidence](connected-proof.json). WhatsApp delivery, ABHA and live AI remain simulated or unconfigured. No hospital pilot, waiting-time reduction or patient outcome has been measured.
+The revised interface, deterministic routing and one-acceptance scheduling are available in a [public preview](https://vishwas-care-demo.vercel.app) with disposable visitor-isolated state. The fuller **local** prototype has encrypted uploads, a tested sample hospital connector and a verified local Fabric document transaction. All 43 automated tests and the local and public browser journeys passed; see [verification](verification.md) and [transaction evidence](connected-proof.json). The public preview has no uploads or external connections. WhatsApp delivery, ABHA and live AI remain simulated or unconfigured. No hospital pilot, waiting-time reduction or patient outcome has been measured.
