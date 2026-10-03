@@ -9,8 +9,8 @@
     "solution_name": "Vishwas",
     "problem": "Before travelling to a hospital, a person with diabetes may have a referral but no clear way to turn it into the right appointment. They need to know which clinic to visit, which specialist has a slot, where to go and which papers to bring. When these details are settled only after arrival, patients may queue at the wrong desk or make another trip, while staff repeat the same guidance by phone. The next gap comes after the visit: a clinician may set a return date, but missed follow-ups can disappear into separate registers and messages. Travel, work, language or caregiver constraints remain unseen until someone calls. Care teams need a shared view from the patient's request at home through arrival and the next confirmed visit.",
     "solution": "From home, a patient submits a visit request with their referral department and language. Clinic staff review the referral department remotely; Vishwas does not infer a specialty from symptoms. The care team compares specialists in that department by language and available slots, books one, and the patient sees the time, clinic location and a checklist for referral papers, previous reports and appointment details before travelling. The checklist records presence only; no medical records are uploaded or interpreted. At arrival, staff record check-in and confirm attendance. A clinician-set return date opens a separate follow-up. Vishwas flags it when due, creates consent-based reminders in a simulated WhatsApp inbox and lets patients report practical barriers for staff to handle. Administrative replies require staff approval; caregivers participate with consent. The local prototype uses fictional patients. ABHA consent is simulated. Vishwas gives no diagnosis, risk score, investigation or treatment advice.",
-    "technology": "The local prototype uses Node.js 22 with built-in HTTP and SQLite, plus responsive vanilla JavaScript and CSS. It stores referral, booking, checklist, check-in and follow-up actions. Reminders and staff-approved replies appear in a simulated WhatsApp inbox; a demo clock makes due dates testable. An optional OpenAI Responses API drafting adapter is implemented but unconfigured; clinic templates work without it. ABHA consent is simulated; live messaging and ABDM connections need separate integration.",
-    "existing_work": "Yes - we are building on an existing product",
+    "technology": "We are building a responsive JavaScript interface on Node.js 22 and SQLite. The security design uses AES-256-GCM for stored data, separate encryption keys, and server-checked staff and patient sessions. A demo clock and simulated WhatsApp inbox make routing, reminders and return visits testable. An optional OpenAI Responses API adapter drafts administrative replies from limited inputs for staff approval. ABHA consent is simulated; live WhatsApp and ABDM connections remain future integrations.",
+    "existing_work": "No - we are building a new solution",
     "existing_work_detail": "We began with the concept and an existing pitch deck. During submission preparation, we built a small local prototype of the patient request, referral review, booking and follow-up workflow using fictional data. This is a new solution, with no prior launched product or live hospital integration.",
     "scope_confirmation": "Vishwas takes a referral request before travel, then coordinates the appointment after staff confirmation. It does not diagnose, select a department from symptoms, interpret medical records, score clinical risk, suggest investigations or treatment, or provide autonomous clinical advice.",
     "supporting_links": [
@@ -35,8 +35,8 @@
       "character_limit": 1200
     },
     "technology": {
-      "words": 71,
-      "characters": 503,
+      "words": 70,
+      "characters": 497,
       "word_limit": 80,
       "character_limit": 600
     },
@@ -55,6 +55,7 @@
     "ai": "OpenAI administrative drafting adapter implemented and tested with mocked provider responses; no live credentials configured; template fallback verified",
     "measurements": "No measured patient outcomes",
     "deck_reviewed": false,
-    "form_submitted": false
+    "form_submitted": false,
+    "security": "AES-256-GCM encrypted storage and server-authorized sessions being implemented and verified; not production certification or end-to-end encryption"
   }
 }

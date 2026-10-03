@@ -13,11 +13,13 @@
 
 The existing deck was not supplied for inspection. These notes align its story with the application; this file is not a designed presentation.
 
-**One-line pitch:** Vishwas helps patients request a referral appointment from home and gives the care team one view through arrival and follow-up.
+**One-line pitch:** Know where to go before you travel. Keep the next visit on track.
+
+**Core idea:** Vishwas starts the hospital visit before the patient leaves home. Staff confirm the referral department remotely and arrange an available specialist, appointment time, room and preparation checklist. The same journey continues through attendance, the clinician's return date and consent-based follow-up.
 
 **What connects the workflow:** The patient starts a request before travel. Staff review the referral department remotely, book an available specialist and share the slot, location and document checklist with the patient before arrival. Check-in and a clinician-set return date lead to a separate follow-up for consent-based reminders and staff handling of practical barriers. This is a product design, not a measured outcome or a claim of uniqueness.
 
-## Seven-slide narrative
+## Eight-slide narrative
 
 | Slide | Point to make | Suggested visual or evidence |
 | --- | --- | --- |
@@ -26,8 +28,9 @@ The existing deck was not supplied for inspection. These notes align its story w
 | 3. Preparing the first visit | Staff review the referral department remotely. The team compares specialists in that department by language and slots, books one, and the patient sees the time, location and document-presence checklist before travelling. | Patient request, staff review, booking and patient plan while check-in is still pending |
 | 4. The return visit | After verified check-in and attendance, a clinician-set return date creates a separate follow-up. Consent-based reminders appear in a simulated WhatsApp inbox. | Timeline with initial and follow-up episodes |
 | 5. When a patient cannot return | The patient reports a practical barrier; staff review an administrative reply, help with booking and confirm attendance later. A message or reschedule is not completion. | Fictional travel barrier and staff action |
-| 6. Prototype and limits | Local Node.js, SQLite and browser prototype; synthetic records; simulated WhatsApp and ABHA consent. Optional OpenAI drafting adapter is unconfigured and uses clinic templates without it. No clinical inference or advice. | Small architecture and clear simulated labels |
-| 7. Next steps | Use the verified pre-arrival demo for care-team feedback and consider a supervised pilot. Do not show fabricated patient outcomes. | Repository link and proposed evaluation measures |
+| 6. What runs today | Local Node.js, SQLite and browser prototype; synthetic records; simulated WhatsApp and ABHA consent. Optional OpenAI drafting adapter is unconfigured and uses clinic templates without it. No clinical inference or advice. | Screens from the actual local workflow; keep simulated labels visible |
+| 7. Patient data security | Design: AES-256-GCM encrypted storage, keys outside the database, and server-checked patient and staff sessions. Implementation and tests are in progress. A real deployment still needs HTTPS, managed keys, identity verification and security review. | Browser → access check → workflow → encrypted storage; key shown separately. Label current verification status; do not claim E2EE or certification |
+| 8. How we will judge success | Test referral-to-booking time, wrong-desk transfers, staff handling time, document readiness and verified return attendance in a scoped clinic pilot. | Proposed measures, GitHub link and request for a care-team walkthrough. No invented percentage gains |
 
 ## 60-second pitch
 

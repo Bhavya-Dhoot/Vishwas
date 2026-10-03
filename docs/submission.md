@@ -9,7 +9,7 @@ Prepared for **Bhavya Dhoot** on **3 October 2026**. Paste only the answer under
 | Primary user | Doctor / Care Team |
 | Closest use-case heading | Clinic Operations & Patient Flow |
 | Solution name | Vishwas |
-| Existing work | Yes - we are building on an existing product |
+| Existing work | No - we are building a new solution |
 
 The primary operator is a care coordinator, nurse or OPD staff member. Patients start the request from home, and consented caregivers can participate. The chosen heading reflects the first problem Vishwas addresses: arranging the correct specialist and arrival details before the patient travels. Follow-up remains part of the same workflow.
 
@@ -41,23 +41,33 @@ The checklist records whether documents are present, not what they contain. The 
 
 ## How you will build it
 
-The local prototype uses Node.js 22 with built-in HTTP and SQLite, plus responsive vanilla JavaScript and CSS. It stores referral, booking, checklist, check-in and follow-up actions. Reminders and staff-approved replies appear in a simulated WhatsApp inbox; a demo clock makes due dates testable. An optional OpenAI Responses API drafting adapter is implemented but unconfigured; clinic templates work without it. ABHA consent is simulated; live messaging and ABDM connections need separate integration.
+We are building a responsive JavaScript interface on Node.js 22 and SQLite. The security design uses AES-256-GCM for stored data, separate encryption keys, and server-checked staff and patient sessions. A demo clock and simulated WhatsApp inbox make routing, reminders and return visits testable. An optional OpenAI Responses API adapter drafts administrative replies from limited inputs for staff approval. ABHA consent is simulated; live WhatsApp and ABDM connections remain future integrations.
 
-**Length:** 71 words; 503 characters. Limit: 80 words / 600 characters; minimum: 30 characters.
+**Length:** 70 words; 497 characters. Limit: 80 words / 600 characters; minimum: 30 characters.
 
-The described local implementation uses built-in Node.js HTTP and SQLite with a browser interface. The messaging inbox, ABHA consent and patients are simulated. The optional OpenAI Responses API adapter is implemented and unit-tested against a mocked provider, but has no live credentials. Clinic templates work without it. No live AI, WhatsApp or ABDM connection is claimed. Local persistence is not a claim of production readiness.
+The routing and follow-up workflow is implemented locally with fictional data. Encryption and session access controls are being added and verified as part of this build; the paragraph above describes the implementation plan. The optional OpenAI adapter has been tested with mocked responses, and clinic templates work without live credentials. No live AI, WhatsApp or ABDM connection is claimed.
 
 ## Existing work
 
-Select the form's **Yes - we are building on an existing product** choice if it asks whether any part has already been built. If an explanation is requested, use:
+Select **No - we are building a new solution**, consistent with the applicant's declaration that there was no existing product. If an explanation is requested, use:
 
 > We began with the concept and an existing pitch deck. During submission preparation, we built a small local prototype of the patient request, referral review, booking and follow-up workflow using fictional data. This is a new solution, with no prior launched product or live hospital integration.
 
-The local workflow and the patient-initiated pre-arrival journey passed automated and browser checks; see the [verification record](verification.md). If the form's “existing product” wording refers strictly to a product launched before this hackathon, explain this distinction in its free-text field rather than implying prior deployment.
+Disclose the prototype and its commit history if the organisers ask what exists at submission time. A prototype created for this submission should not be described as a product that existed before the project began. See the [verification record](verification.md) for completed checks.
 
 ## Pitch deck
 
 The applicant reports an existing deck, but it was not supplied for review or upload here. The form requests **6–8 slides, PDF or PowerPoint, maximum 25 MB**. [Deck context and narrative](pitch-deck-context.md) shows how to align it with this application. Do not claim the deck has been reviewed or uploaded.
+
+## Core idea for the PPT
+
+**Vishwas starts the hospital visit before the patient leaves home.** A patient submits their referral department and language; the care team confirms the department, books a suitable available specialist and shares the time, room, directions and document checklist. After the visit, the same workflow tracks the clinician's return date, consented reminders, practical barriers and confirmed attendance.
+
+**One-line pitch:** Know where to go before you travel. Keep the next visit on track.
+
+The intended operational benefit is fewer avoidable desk transfers, repeated calls and missed follow-ups. These are outcomes to measure in a pilot, not results we have already achieved.
+
+**Security slide wording:** Our design combines authenticated encryption of stored data with separate keys and server-enforced patient and staff access. It limits the data collected and keeps medical records out of the demo. HTTPS, managed key storage, identity verification and an independent security review are required before a real deployment. Encryption does not make this end-to-end encrypted or establish regulatory compliance.
 
 ## Links and supporting files
 
